@@ -21,7 +21,14 @@ public class MessageHandler implements Callable<Void> {
     public Void call() throws Exception {
         ByteBuffer byteBuffer = ByteBuffer.allocate(1024); //1kb buffer, messages should not be larger than that
         try{
-            socketChannel.read(byteBuffer);
+            var r = socketChannel.read(byteBuffer);
+            if(r == -1){
+                System.out.printf("Client %s finished the connection ungracefully\n"
+                        , socketChannel.getRemoteAddress());
+                socketChannel.close();
+                //TODO(luisd): handle disconnection in logic
+                return null;
+            }
             //TODO(luisd): do something with message
             System.out.printf("Received message from %s: %s",
                     socketChannel.getRemoteAddress(), new String(byteBuffer.array()));

@@ -15,6 +15,7 @@ public class ServerConnectionHandler {
     }
 
     private void handler(){
+        System.out.println("Ready to accept connections on :4206");
         while (true){
             try {
                 final SocketChannel socketChannel = serverSocketChannel.accept();
@@ -27,7 +28,7 @@ public class ServerConnectionHandler {
 
     }
 
-    public void handleConnections() throws ExecutionException, InterruptedException {
+    public void handleConnections() throws ExecutionException, InterruptedException{
         var future = executorService.submit(this::handler);
         future.get();
     }
