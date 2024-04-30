@@ -4,8 +4,29 @@
 package feup.cpd.server;
 
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.channels.ServerSocketChannel;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class App {
-    public static void main(String[] args) {
-        System.out.println("Hello from server!");
+    public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
+        final ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        serverSocketChannel.bind(new InetSocketAddress(4206));
+        final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+
+        final ServerConnectionHandler serverConnectionHandler = new ServerConnectionHandler(
+                serverSocketChannel, executorService
+        );
+        //propagate executorService to all handlers
+        MessageHandler.executorService = executorService;
+
+        serverConnectionHandler.handleConnections();
+
+        //if it reaches here, we can shutdown all tasks without executing them.
+        executorService.shutdownNow();
+
     }
 }
