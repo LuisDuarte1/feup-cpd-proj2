@@ -1,13 +1,24 @@
 package feup.cpd.server;
 
+import feup.cpd.protocol.MessageReader;
+import feup.cpd.protocol.ProtocolFacade;
+import feup.cpd.protocol.models.LoginRequest;
+import feup.cpd.protocol.models.ProtocolModel;
+import feup.cpd.server.services.LoginService;
+
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
+import static feup.cpd.protocol.MessageReader.INITIAL_BUFFER_SIZE;
+
+@SuppressWarnings("ALL")
 public class MessageHandler implements Callable<Void> {
     static ExecutorService executorService;
     final SocketChannel socketChannel;
+
 
     public MessageHandler(SocketChannel socketChannel) {
         this.socketChannel = socketChannel;
@@ -18,25 +29,28 @@ public class MessageHandler implements Callable<Void> {
     }
 
     @Override
-    public Void call() throws Exception {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(1024); //1kb buffer, messages should not be larger than that
-        try{
-            var r = socketChannel.read(byteBuffer);
-            if(r == -1){
-                System.out.printf("Client %s finished the connection ungracefully\n"
-                        , socketChannel.getRemoteAddress());
-                socketChannel.close();
-                //TODO(luisd): handle disconnection in logic
-                return null;
-            }
-            //TODO(luisd): do something with message
-            System.out.printf("Received message from %s: %s",
-                    socketChannel.getRemoteAddress(), new String(byteBuffer.array()));
+    public Void call() {
+        try {
+            ProtocolModel protocolModel = MessageReader.readMessageFromSocket(socketChannel);
+            ByteBuffer response = switch (protocolModel) {
+                case LoginRequest loginRequest -> LoginService.handleLoginRequest(loginRequest, executorService);
+                case null -> null;
+                default -> throw new IllegalStateException(
+                        "Unexpected value: " +
+                                protocolModel.getClass().getName());
+            };
+
+            if (response == null) return null;
+
+            socketChannel.write(response);
+
+
             executorService.submit(new MessageHandler(socketChannel));
-        } catch (Exception e){
-            //throw execption at runtime
+            return null;
+        } catch (RuntimeException | IOException e){
+            System.err.println("Throwable: " + e.toString());
+            e.printStackTrace();
             throw new RuntimeException(e);
         }
-        return null;
     }
 }
