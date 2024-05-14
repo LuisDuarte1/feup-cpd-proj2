@@ -4,6 +4,7 @@ import feup.cpd.protocol.MessageReader;
 import feup.cpd.protocol.ProtocolFacade;
 import feup.cpd.protocol.models.LoginRequest;
 import feup.cpd.protocol.models.ProtocolModel;
+import feup.cpd.server.concurrent.ConcurrentSocketChannel;
 import feup.cpd.server.services.LoginService;
 
 import java.io.IOException;
@@ -17,10 +18,10 @@ import static feup.cpd.protocol.MessageReader.INITIAL_BUFFER_SIZE;
 @SuppressWarnings("ALL")
 public class MessageHandler implements Callable<Void> {
     static ExecutorService executorService;
-    final SocketChannel socketChannel;
+    final ConcurrentSocketChannel socketChannel;
 
 
-    public MessageHandler(SocketChannel socketChannel) {
+    public MessageHandler(ConcurrentSocketChannel socketChannel) {
         this.socketChannel = socketChannel;
     }
 
@@ -30,8 +31,9 @@ public class MessageHandler implements Callable<Void> {
 
     @Override
     public Void call() {
+        socketChannel.readLock.lock();
         try {
-            ProtocolModel protocolModel = MessageReader.readMessageFromSocket(socketChannel);
+            ProtocolModel protocolModel = MessageReader.readMessageFromSocket(socketChannel.socketChannel);
             ByteBuffer response = switch (protocolModel) {
                 case LoginRequest loginRequest -> LoginService.handleLoginRequest(loginRequest, executorService);
                 case null -> null;
@@ -42,7 +44,12 @@ public class MessageHandler implements Callable<Void> {
 
             if (response == null) return null;
 
-            socketChannel.write(response);
+            socketChannel.writeLock.lock();
+            try {
+                socketChannel.socketChannel.write(response);
+            } finally {
+                socketChannel.writeLock.unlock();
+            }
 
 
             executorService.submit(new MessageHandler(socketChannel));
@@ -51,6 +58,9 @@ public class MessageHandler implements Callable<Void> {
             System.err.println("Throwable: " + e.toString());
             e.printStackTrace();
             throw new RuntimeException(e);
+        }
+        finally {
+            socketChannel.readLock.unlock();
         }
     }
 }

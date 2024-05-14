@@ -63,10 +63,10 @@ public class PlayerRepository {
             FileInputStream fileInputStream = new FileInputStream(PLAYER_REPOSITORY_PATH);
             ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
 
+            //trust me bro check
             List<Player> players = (List<Player>) objectInputStream.readObject();
             Map<String, Player> playerMap = new HashMap<>();
             players.forEach(player -> playerMap.put(player.name, player));
-            //trust me bro check
             registeredPlayerList = new ConcurrentRWMap<>(playerMap);
         } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);

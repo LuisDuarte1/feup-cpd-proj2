@@ -1,5 +1,7 @@
 package feup.cpd.server;
 
+import feup.cpd.server.concurrent.ConcurrentSocketChannel;
+
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutionException;
@@ -20,7 +22,7 @@ public class ServerConnectionHandler {
             try {
                 final SocketChannel socketChannel = serverSocketChannel.accept();
                 System.out.printf("Accepting connection from %s\n", socketChannel.getRemoteAddress());
-                executorService.submit(new MessageHandler(socketChannel));
+                executorService.submit(new MessageHandler(new ConcurrentSocketChannel(socketChannel)));
             } catch (Exception e){
                 throw new RuntimeException(e);
             }

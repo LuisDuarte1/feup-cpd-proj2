@@ -7,6 +7,11 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
+/**
+ *
+ * @param <K> should be immutable and never change (because then, it's hash changes)
+ * @param <V> should be cloneable
+ */
 public class ConcurrentRWMap<K, V> {
 
     private final Map<K, V> internalMap;
