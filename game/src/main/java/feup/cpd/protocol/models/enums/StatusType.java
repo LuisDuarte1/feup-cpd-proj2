@@ -1,10 +1,10 @@
-package feup.cpd.protocol.models;
+package feup.cpd.protocol.models.enums;
 
 public enum StatusType {
     OK(0),
     INVALID_LOGIN(1),
     LOGIN_SUCCESSFUL(2),
-
+    INVALID_REQUEST(3),
     ;
 
     public final int value;

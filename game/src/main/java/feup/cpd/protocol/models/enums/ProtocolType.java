@@ -1,10 +1,11 @@
-package feup.cpd.protocol.models;
-
-import java.util.Map;
+package feup.cpd.protocol.models.enums;
 
 public enum ProtocolType {
     STATUS(0),
     LOGIN_REQUEST(1),
+
+    QUEUE_JOIN(2),
+    QUEUE_TOKEN(3),
 
     ;
 

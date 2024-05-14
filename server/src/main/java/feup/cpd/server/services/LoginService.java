@@ -3,8 +3,12 @@ package feup.cpd.server.services;
 import feup.cpd.protocol.ProtocolFacade;
 import feup.cpd.protocol.models.LoginRequest;
 import feup.cpd.protocol.models.Status;
-import feup.cpd.protocol.models.StatusType;
+import feup.cpd.protocol.models.enums.StatusType;
+import feup.cpd.server.App;
+import feup.cpd.server.concurrent.ConcurrentSocketChannel;
+import feup.cpd.server.concurrent.helper.LockedValue;
 import feup.cpd.server.models.Player;
+import feup.cpd.server.models.PlayerState;
 import feup.cpd.server.repositories.PlayerRepository;
 
 import java.nio.ByteBuffer;
@@ -26,8 +30,20 @@ public class LoginService {
         }
     }
 
-    public static ByteBuffer handleLoginRequest(LoginRequest loginRequest, ExecutorService executorService){
+    public static ByteBuffer handleLoginRequest(
+            LockedValue<PlayerState> playerState, LoginRequest loginRequest, ExecutorService executorService,
+            ConcurrentSocketChannel concurrentSocketChannel){
         final PlayerRepository playerRepository = PlayerRepository.getInstance(executorService);
+
+        playerState.reentrantLock.lock();
+        try {
+            if(playerState.value != PlayerState.UNAUTHENTICATED)
+                return ProtocolFacade.createPacket(
+                        new Status(StatusType.INVALID_REQUEST, "User is already logged on")
+                );
+        } finally {
+            playerState.reentrantLock.unlock();
+        }
 
         final byte[] receivedPasswordHash =
                 messageDigest.digest(loginRequest.password.getBytes(StandardCharsets.UTF_8));
@@ -37,6 +53,14 @@ public class LoginService {
                     loginRequest.user,
                     receivedPasswordHash
             ));
+            playerState.reentrantLock.lock();
+            try {
+                playerState.value = PlayerState.LOGGED_IN;
+            } finally {
+                playerState.reentrantLock.unlock();
+            }
+
+            App.playersLoggedOn.put(concurrentSocketChannel, loginRequest.user);
             return ProtocolFacade.createPacket(
                     new Status(StatusType.LOGIN_SUCCESSFUL, "Created account"));
         }
@@ -50,6 +74,15 @@ public class LoginService {
                     new Status(StatusType.INVALID_LOGIN, "Invalid password given")
             );
         }
+
+        playerState.reentrantLock.lock();
+        try {
+            playerState.value = PlayerState.LOGGED_IN;
+        } finally {
+            playerState.reentrantLock.unlock();
+        }
+
+        App.playersLoggedOn.put(concurrentSocketChannel, loginRequest.user);
 
         return ProtocolFacade.createPacket(
                 new Status(StatusType.OK, "Login successful")

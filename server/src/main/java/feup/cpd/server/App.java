@@ -4,8 +4,11 @@
 package feup.cpd.server;
 
 
+import feup.cpd.server.concurrent.ConcurrentExclusiveMap;
 import feup.cpd.server.concurrent.ConcurrentRWMap;
+import feup.cpd.server.concurrent.ConcurrentSocketChannel;
 import feup.cpd.server.models.Player;
+import feup.cpd.server.models.PlayerState;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -17,7 +20,12 @@ import java.util.concurrent.Executors;
 
 public class App {
 
-    public static ConcurrentRWMap<SocketChannel, Player> connectedPlayers;
+    public static ConcurrentExclusiveMap<ConcurrentSocketChannel, PlayerState> connectedPlayersState =
+            new ConcurrentExclusiveMap<>();
+
+    public static ConcurrentRWMap<ConcurrentSocketChannel, String> playersLoggedOn =
+            new ConcurrentRWMap<>();
+
 
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
         final ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();

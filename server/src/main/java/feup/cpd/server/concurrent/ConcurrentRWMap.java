@@ -15,7 +15,7 @@ import java.util.function.Function;
 public class ConcurrentRWMap<K, V> {
 
     private final Map<K, V> internalMap;
-    private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
     private final Lock r = readWriteLock.readLock();
     private final Lock w = readWriteLock.writeLock();
 
@@ -120,6 +120,15 @@ public class ConcurrentRWMap<K, V> {
         w.lock();
         try {
             internalMap.putAll(map);
+        } finally {
+            w.unlock();
+        }
+    }
+
+    public void remove(K key){
+        w.lock();
+        try {
+            internalMap.remove(key);
         } finally {
             w.unlock();
         }

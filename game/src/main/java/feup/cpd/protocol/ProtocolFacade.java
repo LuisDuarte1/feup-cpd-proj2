@@ -2,12 +2,17 @@ package feup.cpd.protocol;
 
 import feup.cpd.protocol.exceptions.InvalidMessage;
 import feup.cpd.protocol.models.ProtocolModel;
-import feup.cpd.protocol.models.ProtocolType;
+import feup.cpd.protocol.models.QueueJoin;
+import feup.cpd.protocol.models.enums.ProtocolType;
 import feup.cpd.protocol.models.factories.LoginRequestFactory;
+import feup.cpd.protocol.models.factories.QueueJoinFactory;
+import feup.cpd.protocol.models.factories.QueueTokenFactory;
 import feup.cpd.protocol.models.factories.StatusFactory;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.util.Arrays;
 
 public class ProtocolFacade {
@@ -47,6 +52,16 @@ public class ProtocolFacade {
         return switch(type){
             case STATUS -> StatusFactory.buildFromPacket(restPacket);
             case LOGIN_REQUEST -> LoginRequestFactory.buildFromPacket(restPacket);
+            case QUEUE_JOIN -> QueueJoinFactory.buildFromPacket(restPacket);
+            case QUEUE_TOKEN -> QueueTokenFactory.buildFromPacket(restPacket);
         };
+    }
+
+    static public ProtocolModel sendModelAndReceiveResponse(SocketChannel socketChannel, ProtocolModel protocolModel)
+            throws InvalidMessage, IOException {
+
+        socketChannel.write(ProtocolFacade.createPacket(protocolModel));
+        return MessageReader.readMessageFromSocket(socketChannel);
+
     }
 }

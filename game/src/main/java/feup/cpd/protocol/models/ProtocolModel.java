@@ -1,5 +1,7 @@
 package feup.cpd.protocol.models;
 
+import feup.cpd.protocol.models.enums.ProtocolType;
+
 import java.nio.ByteBuffer;
 
 abstract public class ProtocolModel {

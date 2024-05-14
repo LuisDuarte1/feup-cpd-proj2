@@ -4,8 +4,13 @@ import feup.cpd.protocol.MessageReader;
 import feup.cpd.protocol.ProtocolFacade;
 import feup.cpd.protocol.models.LoginRequest;
 import feup.cpd.protocol.models.ProtocolModel;
+import feup.cpd.protocol.models.QueueJoin;
+import feup.cpd.protocol.models.QueueToken;
 import feup.cpd.server.concurrent.ConcurrentSocketChannel;
+import feup.cpd.server.concurrent.helper.LockedValue;
+import feup.cpd.server.models.PlayerState;
 import feup.cpd.server.services.LoginService;
+import feup.cpd.server.services.QueueService;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -20,13 +25,13 @@ public class MessageHandler implements Callable<Void> {
     static ExecutorService executorService;
     final ConcurrentSocketChannel socketChannel;
 
+    //we cache the locked value since it becomes easier to access it without potentially waiting for the Map
+    final LockedValue<PlayerState> playerStateLockedValue;
 
-    public MessageHandler(ConcurrentSocketChannel socketChannel) {
+
+    public MessageHandler(ConcurrentSocketChannel socketChannel, LockedValue<PlayerState> playerStateLockedValue) {
         this.socketChannel = socketChannel;
-    }
-
-    public static void handleMessage(SocketChannel socketChannel){
-
+        this.playerStateLockedValue = playerStateLockedValue;
     }
 
     @Override
@@ -35,7 +40,16 @@ public class MessageHandler implements Callable<Void> {
         try {
             ProtocolModel protocolModel = MessageReader.readMessageFromSocket(socketChannel.socketChannel);
             ByteBuffer response = switch (protocolModel) {
-                case LoginRequest loginRequest -> LoginService.handleLoginRequest(loginRequest, executorService);
+                case LoginRequest loginRequest ->
+                        LoginService.handleLoginRequest(
+                                playerStateLockedValue, loginRequest,
+                                executorService, socketChannel
+                        );
+                case QueueJoin queueJoin ->
+                        QueueService.handleQueueJoinRequest(
+                                playerStateLockedValue, queueJoin,
+                                executorService, socketChannel
+                        );
                 case null -> null;
                 default -> throw new IllegalStateException(
                         "Unexpected value: " +
@@ -51,8 +65,8 @@ public class MessageHandler implements Callable<Void> {
                 socketChannel.writeLock.unlock();
             }
 
+            executorService.submit(new MessageHandler(socketChannel, playerStateLockedValue));
 
-            executorService.submit(new MessageHandler(socketChannel));
             return null;
         } catch (RuntimeException | IOException e){
             System.err.println("Throwable: " + e.toString());

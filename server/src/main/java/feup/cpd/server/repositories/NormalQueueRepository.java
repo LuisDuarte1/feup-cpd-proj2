@@ -79,6 +79,10 @@ public class NormalQueueRepository extends Repository {
         return token;
     }
 
+    public void removeUserFromQueue(String name){
+        playersInQueue.remove(name);
+    }
+
     public void reAddGameCandidates(Map<String, UUID> gameCandidates){
         playersInQueue.putAll(gameCandidates);
         saveAsync();

@@ -1,7 +1,7 @@
 package feup.cpd.protocol.models.factories;
 
 import feup.cpd.protocol.models.Status;
-import feup.cpd.protocol.models.StatusType;
+import feup.cpd.protocol.models.enums.StatusType;
 import feup.cpd.protocol.primitives.StringConverter;
 
 import java.nio.ByteBuffer;

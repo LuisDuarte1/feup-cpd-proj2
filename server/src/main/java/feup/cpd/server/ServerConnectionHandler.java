@@ -1,6 +1,7 @@
 package feup.cpd.server;
 
 import feup.cpd.server.concurrent.ConcurrentSocketChannel;
+import feup.cpd.server.models.PlayerState;
 
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -22,7 +23,9 @@ public class ServerConnectionHandler {
             try {
                 final SocketChannel socketChannel = serverSocketChannel.accept();
                 System.out.printf("Accepting connection from %s\n", socketChannel.getRemoteAddress());
-                executorService.submit(new MessageHandler(new ConcurrentSocketChannel(socketChannel)));
+                var concurrentSocketChannel = new ConcurrentSocketChannel(socketChannel);
+                var lockedState = App.connectedPlayersState.put(concurrentSocketChannel, PlayerState.UNAUTHENTICATED);
+                executorService.submit(new MessageHandler(concurrentSocketChannel, lockedState));
             } catch (Exception e){
                 throw new RuntimeException(e);
             }

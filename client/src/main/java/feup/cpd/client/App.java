@@ -6,9 +6,9 @@ package feup.cpd.client;
 import feup.cpd.game.Game;
 import feup.cpd.protocol.MessageReader;
 import feup.cpd.protocol.ProtocolFacade;
-import feup.cpd.protocol.models.LoginRequest;
-import feup.cpd.protocol.models.ProtocolModel;
-import feup.cpd.protocol.models.Status;
+import feup.cpd.protocol.exceptions.InvalidMessage;
+import feup.cpd.protocol.models.*;
+import feup.cpd.protocol.models.enums.QueueType;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -18,7 +18,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Scanner;
 
 public class App {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InvalidMessage {
         //change this to be compatible with docker
         SocketChannel clientChannel = SocketChannel.open(new InetSocketAddress("localhost", 4206));
         Scanner scanner = new Scanner(System.in);
@@ -28,10 +28,18 @@ public class App {
         System.out.print("Enter password: ");
         String password = scanner.nextLine();
 
-        clientChannel.write(ProtocolFacade.createPacket(new LoginRequest(username, password)));
 
-        ProtocolModel protocolModel = MessageReader.readMessageFromSocket(clientChannel);
+        ProtocolModel protocolModel =
+                ProtocolFacade.sendModelAndReceiveResponse(
+                        clientChannel, new LoginRequest(username, password));
+
         assert protocolModel != null;
         System.out.println(((Status) protocolModel).message);
+
+        QueueToken queueToken =
+                (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
+                        clientChannel, new QueueJoin(QueueType.NORMAL));
+
+        System.out.println(queueToken.uuid);
     }
 }

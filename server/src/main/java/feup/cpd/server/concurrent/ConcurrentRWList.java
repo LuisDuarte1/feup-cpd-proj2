@@ -9,7 +9,7 @@ import java.util.function.Function;
 public class ConcurrentRWList<T> {
 
     private List<T> internalList = List.of();
-    private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
     private final Lock r = readWriteLock.readLock();
     private final Lock w = readWriteLock.writeLock();
 

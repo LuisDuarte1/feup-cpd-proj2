@@ -1,6 +1,8 @@
 package feup.cpd.protocol.models;
 
 
+import feup.cpd.protocol.models.enums.ProtocolType;
+import feup.cpd.protocol.models.enums.StatusType;
 import feup.cpd.protocol.primitives.StringConverter;
 
 import java.io.ByteArrayOutputStream;
