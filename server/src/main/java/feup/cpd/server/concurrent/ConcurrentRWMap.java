@@ -66,6 +66,15 @@ public class ConcurrentRWMap<K, V> {
 
     }
 
+    public int size(){
+        r.lock();
+        try {
+            return internalMap.size();
+        } finally {
+            r.unlock();
+        }
+    }
+
 
     public <R> List<R> getAllValues(Function<V,R> func){
         r.lock();
@@ -90,4 +99,29 @@ public class ConcurrentRWMap<K, V> {
 
     }
 
+    public Map<K,V> removeCount(int countToRemove){
+        w.lock();
+        try {
+            Map<K,V> removedPairs = new HashMap<>();
+            var i = 0;
+            for(var entry : internalMap.entrySet()){
+                if (i >= countToRemove) break;
+                removedPairs.put(entry.getKey(), entry.getValue());
+                internalMap.remove(entry.getKey());
+                i++;
+            }
+            return removedPairs;
+        } finally {
+            w.unlock();
+        }
+    }
+
+    public void putAll(Map<K,V> map){
+        w.lock();
+        try {
+            internalMap.putAll(map);
+        } finally {
+            w.unlock();
+        }
+    }
 }

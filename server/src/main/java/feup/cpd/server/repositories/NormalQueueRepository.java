@@ -3,6 +3,7 @@ package feup.cpd.server.repositories;
 import feup.cpd.server.concurrent.ConcurrentRWMap;
 
 import java.io.*;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -71,11 +72,26 @@ public class NormalQueueRepository extends Repository {
 
 
 
-    UUID addToQueue(String name){
+    public UUID addToQueue(String name){
         var token = UUID.randomUUID();
         playersInQueue.put(name, token);
-        executorService.submit(new SaveQueueJob());
+        saveAsync();
         return token;
+    }
+
+    public void reAddGameCandidates(Map<String, UUID> gameCandidates){
+        playersInQueue.putAll(gameCandidates);
+        saveAsync();
+    }
+
+    public boolean checkIfGameCanBeStarted(int numPlayers){
+        return playersInQueue.size() >= numPlayers;
+    }
+
+    public Map<String, UUID> getGameCandidates(int numPlayers){
+        var gameCandidates = playersInQueue.removeCount(numPlayers);
+        saveAsync();
+        return  gameCandidates;
     }
 
 }
