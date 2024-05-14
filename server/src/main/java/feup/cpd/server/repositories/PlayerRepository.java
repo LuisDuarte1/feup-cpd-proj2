@@ -13,7 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 
-public class PlayerRepository {
+public class PlayerRepository extends Repository {
 
     private static PlayerRepository instance = null;
 
@@ -28,15 +28,17 @@ public class PlayerRepository {
     }
 
     private PlayerRepository(ExecutorService executorService) {
+        super(executorService);
         this.registeredPlayerList = new ConcurrentRWMap<>();
         this.ioLock = new ReentrantLock();
-        readPlayerList();
+        read();
     }
     ConcurrentRWMap<String, Player> registeredPlayerList;
 
     final ReentrantLock ioLock;
 
-    void savePlayerList(){
+    @Override
+    void save(){
         ioLock.lock();
         try {
             List<Player> tempPlayers = registeredPlayerList.getAllValues(Player::clonePlayer);
@@ -53,7 +55,8 @@ public class PlayerRepository {
     }
 
     @SuppressWarnings("unchecked")
-    void readPlayerList(){
+    @Override
+    void read(){
         ioLock.lock();
         try {
             if(!(new File(PLAYER_REPOSITORY_PATH).exists())){
@@ -77,12 +80,12 @@ public class PlayerRepository {
 
     public void savePlayer(Player player){
         registeredPlayerList.put(player.name, player);
-        savePlayerList();
+        saveAsync();
     }
 
     public void mutatePlayer(String name, Function<Player, String> mutateFunc){
         registeredPlayerList.mutateValue(name, mutateFunc);
-        savePlayerList();
+        saveAsync();
     }
 
     public <R> R getFromPlayer(String name, Function<Player, R> getFunc){

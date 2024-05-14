@@ -77,4 +77,17 @@ public class ConcurrentRWMap<K, V> {
         }
     }
 
+    public <R> Map<K,R> getAll(Function<V,R> function){
+        r.lock();
+        try {
+            Map<K,R> newMap = new HashMap<>();
+            internalMap.forEach(((k, v) -> newMap.put(k, function.apply(v))));
+            return newMap;
+        }
+        finally {
+            r.unlock();
+        }
+
+    }
+
 }
