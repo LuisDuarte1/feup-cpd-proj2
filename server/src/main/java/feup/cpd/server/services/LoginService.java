@@ -62,7 +62,7 @@ public class LoginService {
 
             App.playersLoggedOn.put(concurrentSocketChannel, loginRequest.user);
             return ProtocolFacade.createPacket(
-                    new Status(StatusType.LOGIN_SUCCESSFUL, "Created account"));
+                    new Status(StatusType.OK, "Created account"));
         }
         final byte[] passwordHash =
                 playerRepository.getFromPlayer(

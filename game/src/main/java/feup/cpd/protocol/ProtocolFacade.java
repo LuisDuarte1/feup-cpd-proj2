@@ -3,7 +3,9 @@ package feup.cpd.protocol;
 import feup.cpd.protocol.exceptions.InvalidMessage;
 import feup.cpd.protocol.models.ProtocolModel;
 import feup.cpd.protocol.models.QueueJoin;
+import feup.cpd.protocol.models.Status;
 import feup.cpd.protocol.models.enums.ProtocolType;
+import feup.cpd.protocol.models.enums.StatusType;
 import feup.cpd.protocol.models.factories.LoginRequestFactory;
 import feup.cpd.protocol.models.factories.QueueJoinFactory;
 import feup.cpd.protocol.models.factories.QueueTokenFactory;
@@ -61,7 +63,22 @@ public class ProtocolFacade {
             throws InvalidMessage, IOException {
 
         socketChannel.write(ProtocolFacade.createPacket(protocolModel));
-        return MessageReader.readMessageFromSocket(socketChannel);
+        ProtocolModel message = MessageReader.readMessageFromSocket(socketChannel);
+        switch (message){
+            case Status status -> {
+                if (status.code != StatusType.OK){
+                    throw new RuntimeException(
+                            String.format("Server throwed status %s with message: %s", 
+                                    status.code, 
+                                    status.message));
+                }
+                return status;
+            }
+            case null -> {throw new RuntimeException("Could not build packet received from client...");}
+            default -> {
+                return message;
+            }
+        }
 
     }
 }

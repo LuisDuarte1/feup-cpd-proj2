@@ -38,8 +38,20 @@ public class QueueService {
 
             String name = App.playersLoggedOn.get(concurrentSocketChannel, String::new);
 
+            if(normalQueueRepo.checkIfUserInQueue(name)){
+                return ProtocolFacade.createPacket(
+                        new Status(StatusType.INVALID_REQUEST, "Can't add user that's already on queue")
+                );
+            }
+
             UUID uuid = normalQueueRepo.addToQueue(name);
 
+            boolean canCreateGame = normalQueueRepo.checkIfGameCanBeStarted(App.PLAYER_GAME_COUNT);
+
+            if(canCreateGame){
+                var gameCandidates = normalQueueRepo.getGameCandidates(App.PLAYER_GAME_COUNT);
+                //TODO: do something with them
+            }
 
             return ProtocolFacade.createPacket(new QueueToken(uuid));
         }

@@ -27,6 +27,8 @@ public class App {
             new ConcurrentRWMap<>();
 
 
+    public static int PLAYER_GAME_COUNT = 4;
+
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
         final ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.bind(new InetSocketAddress(4206));
