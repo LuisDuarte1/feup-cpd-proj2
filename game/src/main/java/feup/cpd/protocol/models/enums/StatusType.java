@@ -4,6 +4,9 @@ public enum StatusType {
     OK(0),
     INVALID_LOGIN(1),
     INVALID_REQUEST(3),
+
+    MATCH_STARTING(4),
+    NOT_IN_QUEUE(5)
     ;
 
     public final int value;

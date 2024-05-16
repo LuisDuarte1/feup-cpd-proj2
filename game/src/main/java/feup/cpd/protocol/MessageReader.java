@@ -5,13 +5,16 @@ import feup.cpd.protocol.models.ProtocolModel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
+import java.util.function.Function;
 
 public class MessageReader {
     static public int INITIAL_BUFFER_SIZE = 1024;
 
-    public static ProtocolModel readMessageFromSocket(SocketChannel socketChannel) {
+    public static ProtocolModel readMessageFromSocket(SocketChannel socketChannel,
+                                                      Function<Void, Void> disconnectionCallback) {
         ByteBuffer byteBuffer = ByteBuffer.allocate(INITIAL_BUFFER_SIZE); //1kb buffer, messages should not be larger than that
         try {
             var r = socketChannel.read(byteBuffer);
@@ -20,7 +23,7 @@ public class MessageReader {
                 System.out.printf("Client %s finished the connection ungracefully\n"
                         , socketChannel.getRemoteAddress());
                 socketChannel.close();
-                //TODO(luisd): handle disconnection in logic
+                disconnectionCallback.apply(null);
                 return null;
             }
 
@@ -49,7 +52,7 @@ public class MessageReader {
                         System.out.printf("Client %s finished the connection ungracefully\n"
                                 , socketChannel.getRemoteAddress());
                         socketChannel.close();
-                        //TODO(luisd): handle disconnection in logic
+                        disconnectionCallback.apply(null);
                         return null;
                     }
                     remainingLength -= r;
@@ -61,7 +64,11 @@ public class MessageReader {
                     socketChannel.getRemoteAddress(), length);
 
             return ProtocolFacade.buildFromPacket(byteBuffer);
-        } catch (IOException | InvalidMessage e) {
+        } catch (ClosedChannelException closedChannelException){
+            //don't call another message handler if it's closed
+            return null;
+        }
+        catch (IOException | InvalidMessage e) {
             throw new RuntimeException(e);
         }
 

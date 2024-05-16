@@ -1,6 +1,8 @@
-package feup.cpd.server;
+package feup.cpd.server.handlers;
 
+import feup.cpd.server.App;
 import feup.cpd.server.concurrent.ConcurrentSocketChannel;
+import feup.cpd.server.handlers.MessageHandler;
 import feup.cpd.server.models.PlayerState;
 
 import java.nio.channels.ServerSocketChannel;

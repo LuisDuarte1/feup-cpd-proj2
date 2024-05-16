@@ -12,6 +12,13 @@ public class RWLockedValue<V> {
 
     private final Lock write;
 
+    public RWLockedValue(V value){
+        this.value = value;
+        this.reentrantLock = new ReentrantReadWriteLock(true);
+        this.write = reentrantLock.writeLock();
+        this.read = reentrantLock.readLock();
+    }
+
     public RWLockedValue(V value, ReentrantReadWriteLock reentrantLock) {
         this.value = value;
         this.reentrantLock = reentrantLock;

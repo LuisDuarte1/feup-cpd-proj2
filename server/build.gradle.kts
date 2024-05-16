@@ -13,6 +13,13 @@ java{
     }
 }
 
+
+tasks.withType<Jar> {
+    manifest {
+        attributes["Main-Class"] = "feup.cpd.server.App"
+    }
+}
+
 dependencies {
     api(project(":game"))
 }
@@ -20,4 +27,23 @@ dependencies {
 application {
     // Define the main class for the application.
     mainClass = "feup.cpd.server.App";
+}
+
+
+tasks {
+    val delete = register<Delete>("DeleteSERFiles") {
+        delete(fileTree(".") {
+            include("**/*.ser")
+        })
+    }
+
+
+    val run = named<JavaExec>("run") {
+        standardInput = System.`in`
+    }
+
+    run.configure {
+        dependsOn(delete)
+    }
+
 }

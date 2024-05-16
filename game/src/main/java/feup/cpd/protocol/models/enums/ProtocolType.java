@@ -6,6 +6,8 @@ public enum ProtocolType {
 
     QUEUE_JOIN(2),
     QUEUE_TOKEN(3),
+    MATCH_FOUND(4),
+    ACCEPT_MATCH(5),
 
     ;
 

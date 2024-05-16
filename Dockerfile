@@ -1,0 +1,34 @@
+# Stage 1: Build stage
+FROM gradle:jdk21-alpine AS builder
+LABEL authors="luisd"
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the Gradle files
+COPY settings.gradle.kts .
+
+# Copy the source code
+COPY server server
+COPY game game
+COPY client client
+COPY buildSrc buildSrc
+COPY gradle gradle
+
+# Build the application
+RUN gradle server:build
+
+# Stage 2: Runtime stage
+FROM openjdk:21-slim
+
+# Set the working directory
+WORKDIR /app
+
+# Copy the built JAR file from the previous stage
+COPY --from=builder /app/server/build/libs/*.jar .
+
+# Expose the port if necessary
+EXPOSE 4206
+
+# Command to run the application
+CMD ["java", "-jar", "server.jar"]

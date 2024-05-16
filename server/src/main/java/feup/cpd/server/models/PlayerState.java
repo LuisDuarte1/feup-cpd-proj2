@@ -7,6 +7,8 @@ public enum PlayerState {
     NORMAL_QUEUE(2),
     RANKED_QUEUE(3),
     IN_GAME(4),
+
+    FOUND_GAME(5),
     ;
 
     public final int value;

@@ -53,14 +53,7 @@ public class LoginService {
                     loginRequest.user,
                     receivedPasswordHash
             ));
-            playerState.reentrantLock.lock();
-            try {
-                playerState.value = PlayerState.LOGGED_IN;
-            } finally {
-                playerState.reentrantLock.unlock();
-            }
-
-            App.playersLoggedOn.put(concurrentSocketChannel, loginRequest.user);
+            changePlayerLoginState(playerState, loginRequest, concurrentSocketChannel);
             return ProtocolFacade.createPacket(
                     new Status(StatusType.OK, "Created account"));
         }
@@ -75,6 +68,14 @@ public class LoginService {
             );
         }
 
+        changePlayerLoginState(playerState, loginRequest, concurrentSocketChannel);
+
+        return ProtocolFacade.createPacket(
+                new Status(StatusType.OK, "Login successful")
+        );
+    }
+
+    private static void changePlayerLoginState(LockedValue<PlayerState> playerState, LoginRequest loginRequest, ConcurrentSocketChannel concurrentSocketChannel) {
         playerState.reentrantLock.lock();
         try {
             playerState.value = PlayerState.LOGGED_IN;
@@ -82,10 +83,9 @@ public class LoginService {
             playerState.reentrantLock.unlock();
         }
 
-        App.playersLoggedOn.put(concurrentSocketChannel, loginRequest.user);
-
-        return ProtocolFacade.createPacket(
-                new Status(StatusType.OK, "Login successful")
-        );
+        App.playersLoggedOn.lockAndWrite((map) -> {
+            map.put(concurrentSocketChannel, loginRequest.user);
+            return  null;
+        });
     }
 }

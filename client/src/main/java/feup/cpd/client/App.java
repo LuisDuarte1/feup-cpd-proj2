@@ -9,24 +9,36 @@ import feup.cpd.protocol.ProtocolFacade;
 import feup.cpd.protocol.exceptions.InvalidMessage;
 import feup.cpd.protocol.models.*;
 import feup.cpd.protocol.models.enums.QueueType;
+import feup.cpd.protocol.models.enums.StatusType;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
+import java.util.Locale;
 import java.util.Scanner;
 
 public class App {
     public static void main(String[] args) throws IOException, InvalidMessage {
-        //change this to be compatible with docker
-        SocketChannel clientChannel = SocketChannel.open(new InetSocketAddress("localhost", 4206));
         Scanner scanner = new Scanner(System.in);
-        System.out.print("Enter username: ");
-        String username = scanner.nextLine();
+        String username = null;
+        String password = null;
+        if(args.length != 0){
+            username = args[0];
+            password = args[1];
+        }
 
-        System.out.print("Enter password: ");
-        String password = scanner.nextLine();
+        //TODO(luisd): change this to be compatible with docker
+        SocketChannel clientChannel = SocketChannel.open(new InetSocketAddress("localhost", 4206));
+        if(args.length == 0){
+            System.out.print("Enter username: ");
+            username = scanner.nextLine();
+
+            System.out.print("Enter password: ");
+            password = scanner.nextLine();
+        }
+
 
 
         ProtocolModel protocolModel =
@@ -40,6 +52,39 @@ public class App {
                 (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
                         clientChannel, new QueueJoin(QueueType.NORMAL));
 
-        System.out.println(queueToken.uuid);
+        var inGame = false;
+
+        while (true){
+            switch (ProtocolFacade.receiveFromServer(clientChannel)){
+                case MatchFound matchFound -> {
+                    System.out.print("Found match, do you want to accept? (Y/n):");
+                    String output = scanner.nextLine().toLowerCase(Locale.ROOT);
+                    boolean accepted = output.equals("y");
+                    clientChannel.write(ProtocolFacade.createPacket(new AcceptMatch(
+                            accepted,
+                            queueToken.uuid,
+                            matchFound.matchID))
+                    );
+
+                }
+                case Status status when status.code == StatusType.MATCH_STARTING -> {
+                    inGame = true;
+                    System.out.println("Everyone accepted match... starting");
+                }
+                case Status status when status.code == StatusType.OK -> {
+                    System.out.printf("Server returned: %s\n", status.message);
+                }
+                case Status status when status.code == StatusType.NOT_IN_QUEUE -> {
+                    if(!inGame){
+                        System.out.println("Removed from queue... trying again to enter");
+                        queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
+                                clientChannel, new QueueJoin(QueueType.NORMAL));
+                    }
+                }
+                case null -> throw new RuntimeException("Could not receive message from server");
+                default -> throw new RuntimeException("Didn't handle packet received from server");
+            }
+        }
+
     }
 }

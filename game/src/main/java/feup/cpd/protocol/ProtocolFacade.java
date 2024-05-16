@@ -6,10 +6,7 @@ import feup.cpd.protocol.models.QueueJoin;
 import feup.cpd.protocol.models.Status;
 import feup.cpd.protocol.models.enums.ProtocolType;
 import feup.cpd.protocol.models.enums.StatusType;
-import feup.cpd.protocol.models.factories.LoginRequestFactory;
-import feup.cpd.protocol.models.factories.QueueJoinFactory;
-import feup.cpd.protocol.models.factories.QueueTokenFactory;
-import feup.cpd.protocol.models.factories.StatusFactory;
+import feup.cpd.protocol.models.factories.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -56,6 +53,8 @@ public class ProtocolFacade {
             case LOGIN_REQUEST -> LoginRequestFactory.buildFromPacket(restPacket);
             case QUEUE_JOIN -> QueueJoinFactory.buildFromPacket(restPacket);
             case QUEUE_TOKEN -> QueueTokenFactory.buildFromPacket(restPacket);
+            case MATCH_FOUND -> MatchFoundFactory.buildFromPacket(restPacket);
+            case ACCEPT_MATCH -> AcceptMatchFactory.buildFromPacket(restPacket);
         };
     }
 
@@ -63,13 +62,20 @@ public class ProtocolFacade {
             throws InvalidMessage, IOException {
 
         socketChannel.write(ProtocolFacade.createPacket(protocolModel));
-        ProtocolModel message = MessageReader.readMessageFromSocket(socketChannel);
+        return receiveFromServer(socketChannel);
+    }
+
+    static public ProtocolModel receiveFromServer(SocketChannel socketChannel){
+        ProtocolModel message = MessageReader.readMessageFromSocket(socketChannel, (Void unused) -> {
+
+            return null;
+        });
         switch (message){
             case Status status -> {
-                if (status.code != StatusType.OK){
+                if (status.code == StatusType.INVALID_LOGIN || status.code == StatusType.INVALID_REQUEST){
                     throw new RuntimeException(
-                            String.format("Server throwed status %s with message: %s", 
-                                    status.code, 
+                            String.format("Server throwed status %s with message: %s",
+                                    status.code,
                                     status.message));
                 }
                 return status;
@@ -79,6 +85,5 @@ public class ProtocolFacade {
                 return message;
             }
         }
-
     }
 }

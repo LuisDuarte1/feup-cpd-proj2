@@ -1,18 +1,21 @@
 package feup.cpd.server.services;
 
 import feup.cpd.protocol.ProtocolFacade;
-import feup.cpd.protocol.models.QueueJoin;
-import feup.cpd.protocol.models.QueueToken;
-import feup.cpd.protocol.models.Status;
+import feup.cpd.protocol.models.*;
 import feup.cpd.protocol.models.enums.ProtocolType;
+import feup.cpd.protocol.models.enums.QueueType;
 import feup.cpd.protocol.models.enums.StatusType;
 import feup.cpd.server.App;
 import feup.cpd.server.concurrent.ConcurrentSocketChannel;
 import feup.cpd.server.concurrent.helper.LockedValue;
+import feup.cpd.server.handlers.GameFoundHandler;
+import feup.cpd.server.handlers.GameFoundTimeoutHandler;
 import feup.cpd.server.models.PlayerState;
 import feup.cpd.server.repositories.NormalQueueRepository;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
@@ -36,7 +39,7 @@ public class QueueService {
 
             var normalQueueRepo = NormalQueueRepository.getInstance(executorService);
 
-            String name = App.playersLoggedOn.get(concurrentSocketChannel, String::new);
+            String name = App.playersLoggedOn.lockAndRead((map) -> map.get(concurrentSocketChannel));
 
             if(normalQueueRepo.checkIfUserInQueue(name)){
                 return ProtocolFacade.createPacket(
@@ -46,18 +49,98 @@ public class QueueService {
 
             UUID uuid = normalQueueRepo.addToQueue(name);
 
-            boolean canCreateGame = normalQueueRepo.checkIfGameCanBeStarted(App.PLAYER_GAME_COUNT);
-
-            if(canCreateGame){
-                var gameCandidates = normalQueueRepo.getGameCandidates(App.PLAYER_GAME_COUNT);
-                //TODO: do something with them
+            playerState.reentrantLock.lock();
+            try {
+                playerState.value = PlayerState.NORMAL_QUEUE;
+            } finally {
+                playerState.reentrantLock.unlock();
             }
 
+            System.out.printf("Added %s to queue\n", name);
+            boolean canCreateGame = normalQueueRepo.checkIfGameCanBeStarted(App.PLAYER_GAME_COUNT);
+            if(!canCreateGame){
+                return ProtocolFacade.createPacket(new QueueToken(uuid));
+            }
+
+            System.out.println("Sufficient players to create normal game: adding handler to queue");
+            var gameCandidates = normalQueueRepo.getGameCandidates(App.PLAYER_GAME_COUNT);
+            executorService.submit(new GameFoundHandler(gameCandidates, QueueType.NORMAL));
             return ProtocolFacade.createPacket(new QueueToken(uuid));
+
+
+        }
+
+        throw new RuntimeException("Didn't implement ranked queues yet.");
+    }
+
+    public static ByteBuffer handleAcceptQueue(LockedValue<PlayerState> playerState, AcceptMatch acceptMatch, ExecutorService executorService,
+                                               ConcurrentSocketChannel concurrentSocketChannel){
+
+        playerState.reentrantLock.lock();
+        try {
+            if(playerState.value != PlayerState.FOUND_GAME){
+                return ProtocolFacade.createPacket(
+                        new Status(StatusType.NOT_IN_QUEUE, "You are not in a accepting game state anymore.. please try again.")
+                );
+            }
+        } finally {
+            playerState.reentrantLock.unlock();
+        }
+        var matchPair = App.pendingMatches.get(acceptMatch.matchId);
+        if(matchPair == null){
+            return ProtocolFacade.createPacket(
+                    new Status(StatusType.OK, "Someone else didn't accept the game... returning to queue.")
+            );
+        }
+        QueueType queueType = matchPair.value.third();
+
+        var playerName = App.playersLoggedOn.lockAndRead(((val) -> val.get(concurrentSocketChannel)));
+
+        if(!acceptMatch.acceptMatchBoolean){
+            GameFoundTimeoutHandler.removePendingMatch(acceptMatch.matchId,
+                    playerName,
+                    queueType);
+            return ProtocolFacade.createPacket(
+                    new Status(StatusType.OK, "Removed from found game and didn't return to queue"));
         }
 
 
+        matchPair.reentrantLock.lock();
+        try {
+            //check if match still exists inside lock
+            if(App.pendingMatches.get(acceptMatch.matchId) == null){
+                return ProtocolFacade.createPacket(
+                        new Status(StatusType.OK, "Someone else didn't accept the game... returning to queue.")
+                );
+            }
+            matchPair.value.second().remove(playerName);
+            matchPair.value.second().put(playerName, true);
 
-        throw new RuntimeException("Didn't implement ranked queues yet.");
+            var everyoneAccepted = matchPair.value.second().values().stream().reduce((a,b) -> a && b).get();
+
+            if(everyoneAccepted){
+                System.out.printf("Game %s has been accepted by all... starting game.\n", acceptMatch.matchId);
+                final Status gameStarting = new Status(StatusType.MATCH_STARTING, "Everyone accepted... match starting");
+                for(var entry : matchPair.value.first().entrySet()){
+                    if(Objects.equals(entry.getKey(), playerName)) continue;
+                    var connection = App.playersLoggedOn.lockAndRead((val) -> val.getInverse(entry.getKey()));
+                    connection.writeLock.lock();
+                    try {
+                        connection.socketChannel.write(ProtocolFacade.createPacket(gameStarting));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    } finally {
+                        connection.writeLock.unlock();
+                    }
+                }
+                return ProtocolFacade.createPacket(gameStarting);
+            }
+
+            return ProtocolFacade.createPacket(
+                    new Status(StatusType.OK, "Accepted game... waiting for other players"));
+        } finally {
+            matchPair.reentrantLock.unlock();
+        }
+
     }
 }

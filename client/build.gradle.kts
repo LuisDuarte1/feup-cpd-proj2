@@ -14,6 +14,12 @@ java {
     }
 }
 
+
+tasks.withType<Jar> {
+    manifest {
+        attributes["Main-Class"] = "feup.cpd.client.App"
+    }
+}
 dependencies {
     api(project(":game"))
 }
@@ -22,7 +28,10 @@ application {
     // Define the main class for the application.
     mainClass = "feup.cpd.client.App";
 }
-
-tasks.named<JavaExec>("run") {
-    standardInput = System.`in`
+tasks {
+    named<JavaExec>("run") {
+        standardInput = System.`in`
+    }
 }
+
+
