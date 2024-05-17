@@ -137,12 +137,13 @@ public class Game {
             int number;
 
             while(true){
+                //VER CASO EM QUE DAO INPUTS ERRADOS
                 System.out.println("\nSelect a card to play:");
                 String selectedNumber = scanner.nextLine();
                 number = Integer.parseInt(selectedNumber)-1;
-                if(players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.getLast(),Color.RED)){
-                    break;
-                }
+                if (number<players.get(currentPlayer).getHand().size()
+                                && number>0
+                                && players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.getLast(),Color.RED)) break;
                 System.out.println("Can't play that card");
             }
 
