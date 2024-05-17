@@ -1,3 +1,5 @@
 package feup.cpd.server.collections;
 
-public record Pair<T, V>(T first, V second){ }
+import java.io.Serializable;
+
+public record Pair<T, V>(T first, V second) implements Serializable { }

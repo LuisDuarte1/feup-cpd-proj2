@@ -8,7 +8,7 @@ import java.nio.ByteBuffer;
 
 public class QueueJoin extends ProtocolModel{
 
-    final QueueType queueType;
+    public final QueueType queueType;
 
     public QueueJoin(QueueType queueType){
         super(ProtocolType.QUEUE_JOIN);

@@ -39,6 +39,8 @@ public class App {
             password = scanner.nextLine();
         }
 
+        final QueueType queueType = QueueType.RANKED;
+
 
 
         ProtocolModel protocolModel =
@@ -50,7 +52,7 @@ public class App {
 
         QueueToken queueToken =
                 (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
-                        clientChannel, new QueueJoin(QueueType.NORMAL));
+                        clientChannel, new QueueJoin(queueType));
 
         var inGame = false;
 
@@ -78,7 +80,7 @@ public class App {
                     if(!inGame){
                         System.out.println("Removed from queue... trying again to enter");
                         queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
-                                clientChannel, new QueueJoin(QueueType.NORMAL));
+                                clientChannel, new QueueJoin(queueType));
                     }
                 }
                 case null -> throw new RuntimeException("Could not receive message from server");

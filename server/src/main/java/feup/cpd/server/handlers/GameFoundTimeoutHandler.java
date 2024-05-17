@@ -4,6 +4,7 @@ import feup.cpd.protocol.models.enums.QueueType;
 import feup.cpd.server.App;
 import feup.cpd.server.models.PlayerState;
 import feup.cpd.server.repositories.NormalQueueRepository;
+import feup.cpd.server.repositories.RankedQueueRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -96,7 +97,7 @@ public class GameFoundTimeoutHandler implements Callable<Void> {
             if(queueType == QueueType.NORMAL){
                 NormalQueueRepository.getInstance(executorService).reAddGameCandidates(pendingTuple.value.first());
             } else{
-                throw new RuntimeException("Ranked queue accept timeouts are not implemented.");
+                RankedQueueRepository.getInstance(executorService).reAddGameCandidates(pendingTuple.value.first());
             }
             App.pendingMatches.delete(matchUUID);
         } finally {

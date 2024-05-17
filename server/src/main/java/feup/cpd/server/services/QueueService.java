@@ -10,8 +10,11 @@ import feup.cpd.server.concurrent.ConcurrentSocketChannel;
 import feup.cpd.server.concurrent.helper.LockedValue;
 import feup.cpd.server.handlers.GameFoundHandler;
 import feup.cpd.server.handlers.GameFoundTimeoutHandler;
+import feup.cpd.server.models.Player;
 import feup.cpd.server.models.PlayerState;
 import feup.cpd.server.repositories.NormalQueueRepository;
+import feup.cpd.server.repositories.PlayerRepository;
+import feup.cpd.server.repositories.RankedQueueRepository;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -34,12 +37,12 @@ public class QueueService {
             playerState.reentrantLock.unlock();
         }
 
+        String name = App.playersLoggedOn.lockAndRead((map) -> map.get(concurrentSocketChannel));
 
-        if(queueJoin.type == ProtocolType.QUEUE_JOIN){
+        if(queueJoin.queueType == QueueType.NORMAL){
 
             var normalQueueRepo = NormalQueueRepository.getInstance(executorService);
 
-            String name = App.playersLoggedOn.lockAndRead((map) -> map.get(concurrentSocketChannel));
 
             if(normalQueueRepo.checkIfUserInQueue(name)){
                 return ProtocolFacade.createPacket(
@@ -70,7 +73,30 @@ public class QueueService {
 
         }
 
-        throw new RuntimeException("Didn't implement ranked queues yet.");
+        var rankedQueueRepo = RankedQueueRepository.getInstance(executorService);
+        var playerRepo = PlayerRepository.getInstance(executorService);
+
+        if(rankedQueueRepo.checkIfUserInQueue(name)){
+            return ProtocolFacade.createPacket(
+                    new Status(StatusType.INVALID_REQUEST, "Can't add user that's already on queue")
+            );
+        }
+
+        final int elo = playerRepo.getFromPlayer(name, Player::getElo);
+
+        UUID uuid = rankedQueueRepo.addToQueue(name, elo);
+
+        playerState.reentrantLock.lock();
+        try {
+            playerState.value = PlayerState.RANKED_QUEUE;
+        } finally {
+            playerState.reentrantLock.unlock();
+        }
+
+        System.out.printf("Added %s to ranked queue\n", name);
+        //no need to handle game join, as it will be handled eventually by RankedQueueMatchmakerHandler
+        return ProtocolFacade.createPacket(new QueueToken(uuid));
+
     }
 
     public static ByteBuffer handleAcceptQueue(LockedValue<PlayerState> playerState, AcceptMatch acceptMatch, ExecutorService executorService,
