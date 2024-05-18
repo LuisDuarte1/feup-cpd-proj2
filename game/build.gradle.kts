@@ -15,5 +15,9 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "feup.cpd.game.Game";
+    mainClass = "feup.cpd.game.Main";
+}
+
+tasks.named<JavaExec>("run") {
+    standardInput = System.`in`
 }
