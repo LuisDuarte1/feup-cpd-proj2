@@ -1,12 +1,28 @@
 package feup.cpd.game;
 
 
-public class Card {
+import java.io.Serializable;
+import java.util.Objects;
+
+public class Card implements Serializable {
 
     public static final boolean linux = true;
     private Color color;
     private Value value;
     private Color newColor;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Card card = (Card) o;
+        return color == card.color && value == card.value;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(color, value);
+    }
 
     public Card(Color color, Value value){
         this.color = color;
@@ -77,11 +93,12 @@ public class Card {
 
         return result;
     }
-    public boolean canPlayOn(Card card, Color newColor){
+    public boolean canPlayOn(Card card){
         return color==Color.BLACK || value == Value.WILD || value == Value.WILD4 ||
                 color == card.getColor() || color == card.getNewColor() ||
                 (color != card.getColor() && value == card.getValue());
     }
+
 
    /* public boolean applyEffect(){
 

@@ -1,18 +1,17 @@
 package feup.cpd.game;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Collections;
-import java.util.Scanner;
+import java.io.Serializable;
+import java.util.*;
 
-public class Game {
-    private List<Card> deck;
-    private List<Player> players;
+public class Game implements Serializable {
+    private final List<Card> deck;
+    private final List<Player> players;
+
     private int currentPlayer;
-    private List<Card> discardPile;
+
+    private final List<Card> discardPile;
     private boolean order;
     private int drawNumber;
-
     public Game() {
         deck = createDeck();
         players = new ArrayList<>();
@@ -20,6 +19,10 @@ public class Game {
         discardPile = new ArrayList<>();
         order= true;
         drawNumber=0;
+    }
+
+    public String getCurrentPlayerName() {
+        return players.get(currentPlayer).name;
     }
 
     private List<Card> createDeck() {
@@ -30,9 +33,6 @@ public class Game {
         for (Color color : colors) {
             for (Value value : values) {
                 deck.add(new Card(color, value));
-                if (!value.equals("0")) {
-                    deck.add(new Card(color, value));
-                }
             }
         }
 
@@ -77,7 +77,7 @@ public class Game {
         }
         while(true) {
             for (Card card : players.get(currentPlayer).getHand()) {
-                if (card.canPlayOn(discardPile.getLast(), Color.RED) || card.getColor() == Color.BLACK) {
+                if (card.canPlayOn(discardPile.getLast()) || card.getColor() == Color.BLACK) {
                     return;
                 }
             }
@@ -93,10 +93,12 @@ public class Game {
         players.get(currentPlayer).getHand().remove(number);
     }
 
-    public void drawCard(){
+    public Card drawCard(){
         System.out.println("Drawing card...");
-        players.get(currentPlayer).getHand().add(deck.getLast());
+        final Card card = deck.getLast();
+        players.get(currentPlayer).getHand().add(card);
         deck.removeLast();
+        return card;
     }
     public void showHand(){
         for (Card card : players.get(currentPlayer).getHand()) {
@@ -122,12 +124,82 @@ public class Game {
         playGame();
     }
 
+    public Optional<Card> checkAndDrawHeadless(){
+        if(drawNumber != 0){
+            return Optional.of(drawCard());
+        }
+
+        for (Card card : players.get(currentPlayer).getHand()) {
+            if (card.canPlayOn(discardPile.getLast()) || card.getColor() == Color.BLACK) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(drawCard());
+    }
+
+    public void startGameHeadless(List<String> playerNames){
+        for(final String playerName : playerNames){
+            Player p= new Player(playerName);
+            addPlayer(p);
+            for(int j=0; j<7;j++){
+                p.getHand().add(deck.getFirst());
+                deck.removeFirst();
+            }
+        }
+
+        discardPile.add(deck.getLast());
+        deck.removeFirst();
+    }
+
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    public boolean playCard(Card card){
+        if (drawNumber != 0) return false;
+        var hand = players.get(currentPlayer).getHand();
+        if (!(hand.contains(card)
+                && hand.stream().filter((card1) -> card == card1)
+                        .findFirst().get().canPlayOn(discardPile.getFirst())))
+            return false;
+        //TODO(luisd): complete this
+        if(card.getValue()==Value.REVERSE){
+            order= !order;
+        }
+
+        else if(card.getValue()==Value.SKIP){
+            nextTurn();
+        }
+
+        else if(card.getValue()==Value.DRAW2){
+            drawNumber+=2;
+        }
+        else if(card.getColor()==Color.BLACK){
+            if(card.getNewColor() == null) return false;
+
+            if(card.getValue()==Value.WILD4){
+                drawNumber+=4;
+            }
+            placeCard(hand.indexOf(card));
+            nextTurn();
+            return true;
+        }
+
+
+        if(card.getNewColor() != null) return false;
+        placeCard(hand.indexOf(card));
+        return true;
+    }
+
+    public void printLastCardPlayed(){
+        System.out.println("Last Card:");
+        System.out.println(discardPile.getLast());
+    }
+
+
     public void playGame() {
         Scanner scanner = new Scanner(System.in);
 
         while(!isGameOver()){
-            System.out.println("Last Card:");
-            System.out.println(discardPile.getLast());
+            printLastCardPlayed();
 
             System.out.println("Player "+(currentPlayer+1)+"'s hand:");
             showHand();
@@ -143,7 +215,7 @@ public class Game {
                 number = Integer.parseInt(selectedNumber)-1;
                 if (number<players.get(currentPlayer).getHand().size()
                                 && number>0
-                                && players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.getLast(),Color.RED)) break;
+                                && players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.getLast())) break;
                 System.out.println("Can't play that card");
             }
 
