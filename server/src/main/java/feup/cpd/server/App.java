@@ -4,6 +4,7 @@
 package feup.cpd.server;
 
 
+import feup.cpd.game.Game;
 import feup.cpd.protocol.models.enums.QueueType;
 import feup.cpd.server.collections.BidirectionalUniqueMap;
 import feup.cpd.server.collections.Pair;
@@ -35,6 +36,9 @@ public class App {
     public static RWLockedValue<BidirectionalUniqueMap<ConcurrentSocketChannel, String>> playersLoggedOn =
             new RWLockedValue<>(
                     new BidirectionalUniqueMap<>(new HashMap<>(), true));
+
+    public static ConcurrentExclusiveMap<UUID, Game> activeGames
+            = new ConcurrentExclusiveMap<>();
 
     public static ConcurrentExclusiveMap<UUID, Triple<Map<String, UUID>, Map<String, Boolean>, QueueType>> pendingMatches =
             new ConcurrentExclusiveMap<>();

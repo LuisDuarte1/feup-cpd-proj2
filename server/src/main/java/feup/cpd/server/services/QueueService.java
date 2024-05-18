@@ -8,6 +8,7 @@ import feup.cpd.protocol.models.enums.StatusType;
 import feup.cpd.server.App;
 import feup.cpd.server.concurrent.ConcurrentSocketChannel;
 import feup.cpd.server.concurrent.helper.LockedValue;
+import feup.cpd.server.handlers.CreateGameHandler;
 import feup.cpd.server.handlers.GameFoundHandler;
 import feup.cpd.server.handlers.GameFoundTimeoutHandler;
 import feup.cpd.server.models.Player;
@@ -159,6 +160,9 @@ public class QueueService {
                         connection.writeLock.unlock();
                     }
                 }
+                executorService.submit(new CreateGameHandler(
+                        matchPair.value.first().keySet().stream().toList(),
+                        acceptMatch.matchId));
                 return ProtocolFacade.createPacket(gameStarting);
             }
 

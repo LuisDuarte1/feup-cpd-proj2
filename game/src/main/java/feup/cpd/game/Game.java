@@ -25,6 +25,10 @@ public class Game implements Serializable {
         return players.get(currentPlayer).name;
     }
 
+    public boolean checkIfPlayerBelongs(String playerName){
+        return players.stream().filter(player -> Objects.equals(player.name, playerName)).count() == 1;
+    }
+
     private List<Card> createDeck() {
         Color[] colors = {Color.BLUE, Color.RED, Color.GREEN, Color.YELLOW};
         Value[] values = {Value.REVERSE, Value.SKIP, Value.DRAW2, Value.ONE, Value.TWO, Value.THREE, Value.FOUR, Value.FIVE, Value.SIX, Value.SEVEN, Value.EIGHT, Value.NINE};

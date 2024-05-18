@@ -8,6 +8,7 @@ public enum ProtocolType {
     QUEUE_TOKEN(3),
     MATCH_FOUND(4),
     ACCEPT_MATCH(5),
+    GAME_STATE(6),
 
     ;
 
