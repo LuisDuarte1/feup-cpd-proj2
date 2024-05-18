@@ -88,9 +88,9 @@ public class Game implements Serializable {
         }
     }
 
-    public void placeCard(int number){
-        discardPile.add(players.get(currentPlayer).getHand().get(number));
-        players.get(currentPlayer).getHand().remove(number);
+    public void placeCard(Card card){
+        discardPile.add(card);
+        players.get(currentPlayer).getHand().remove(card);
     }
 
     public Card drawCard(){
@@ -98,6 +98,7 @@ public class Game implements Serializable {
         final Card card = deck.getLast();
         players.get(currentPlayer).getHand().add(card);
         deck.removeLast();
+        if (deck.isEmpty()) reshuffleDeck();
         return card;
     }
     public void showHand(){
@@ -178,20 +179,58 @@ public class Game implements Serializable {
             if(card.getValue()==Value.WILD4){
                 drawNumber+=4;
             }
-            placeCard(hand.indexOf(card));
+            placeCard(card);
             nextTurn();
             return true;
         }
 
 
         if(card.getNewColor() != null) return false;
-        placeCard(hand.indexOf(card));
+        placeCard(card);
         return true;
     }
 
     public void printLastCardPlayed(){
         System.out.println("Last Card:");
         System.out.println(discardPile.getLast());
+    }
+
+    public void reshuffleDeck(){
+        System.out.println("Reshuffling deck...");
+
+        deck.addAll(discardPile);
+        discardPile.clear();
+        discardPile.add(deck.getLast());
+        deck.removeLast();
+        Collections.shuffle(deck);
+    }
+
+    public void selectNewColor(Card card){
+        Scanner scanner = new Scanner(System.in);
+
+        while(true){
+            System.out.println("\nSelect a new color for the game:");
+            System.out.println("\n\033[94m [1] Blue\n\033[91m [2] Red\n\033[32m [3] Green\n\033[93m [4] Yellow\033[0m");
+
+            String selectedNumber = scanner.nextLine();
+
+            switch(selectedNumber){
+                case "1":
+                    card.setNewColor(Color.BLUE);
+                    return;
+                case "2":
+                    card.setNewColor(Color.RED);
+                    return;
+                case "3":
+                    card.setNewColor(Color.GREEN);
+                    return;
+                case "4":
+                    card.setNewColor(Color.YELLOW);
+                    return;
+                default:
+                    System.out.println("Invalid input. Please enter a number from 1 to 4.");
+            }
+        }
     }
 
 
@@ -208,57 +247,48 @@ public class Game implements Serializable {
 
             int number;
 
-            while(true){
-                //VER CASO EM QUE DAO INPUTS ERRADOS
+            while (true) {
                 System.out.println("\nSelect a card to play:");
                 String selectedNumber = scanner.nextLine();
-                number = Integer.parseInt(selectedNumber)-1;
-                if (number<players.get(currentPlayer).getHand().size()
-                                && number>0
-                                && players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.getLast())) break;
-                System.out.println("Can't play that card");
+                try {
+                    number = Integer.parseInt(selectedNumber) - 1;
+                    if (number >= 0 && number < players.get(currentPlayer).getHand().size()
+                            && players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.get(discardPile.size() - 1))) {
+                        break;
+                    } else {
+                        System.out.println("Can't play that card");
+                        printLastCardPlayed();
+                        System.out.println("Player "+(currentPlayer+1)+"'s hand:");
+                        showHand();
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid input. Please enter a number.");
+                    printLastCardPlayed();
+                }
             }
 
-            if(players.get(currentPlayer).getHand().get(number).getValue()==Value.REVERSE){
+            Card card = players.get(currentPlayer).getHand().get(number);
+            if(card.getValue()==Value.REVERSE){
                 order= !order;
             }
 
-            else if(players.get(currentPlayer).getHand().get(number).getValue()==Value.SKIP){
+            else if(card.getValue()==Value.SKIP){
                 nextTurn();
             }
 
-            else if(players.get(currentPlayer).getHand().get(number).getValue()==Value.DRAW2){
+            else if(card.getValue()==Value.DRAW2){
                 drawNumber+=2;
             }
 
-            else if(players.get(currentPlayer).getHand().get(number).getColor()==Color.BLACK){
-                System.out.println("\nSelect a new color for the game:");
-                System.out.println("\n\033[94m [1] Blue\n\033[91m [2] Red\n\033[32m [3] Green\n\033[93m [4] Yellow\033[0m");
+            else if(card.getColor()==Color.BLACK){
+                selectNewColor(card);
 
-                String selectedNumber = scanner.nextLine();
-
-                switch(selectedNumber){
-                    case "1":
-                        players.get(currentPlayer).getHand().get(number).setNewColor(Color.BLUE);
-                        break;
-                    case "2":
-                        players.get(currentPlayer).getHand().get(number).setNewColor(Color.RED);
-                        break;
-                    case "3":
-                        players.get(currentPlayer).getHand().get(number).setNewColor(Color.GREEN);
-                        break;
-                    case "4":
-                        players.get(currentPlayer).getHand().get(number).setNewColor(Color.YELLOW);
-                        break;
-                }
-
-                if(players.get(currentPlayer).getHand().get(number).getValue()==Value.WILD4){
+                if(card.getValue()==Value.WILD4){
                     drawNumber+=4;
                 }
             }
 
-
-            placeCard(number);
+            placeCard(card);
 
             System.out.println();
 
