@@ -3,9 +3,10 @@ package feup.cpd.game;
 import java.io.Serializable;
 import java.util.*;
 
-public class Game implements Serializable {
+public class Game {
     private final List<Card> deck;
     private final List<Player> players;
+
 
     private int currentPlayer;
 
@@ -21,8 +22,21 @@ public class Game implements Serializable {
         drawNumber=0;
     }
 
+    public Card getTopCard() { return discardPile.getLast(); }
     public String getCurrentPlayerName() {
         return players.get(currentPlayer).name;
+    }
+
+    public List<Card> getCurrentPlayerHand() {
+        return players.get(currentPlayer).getHand();
+    }
+
+    public List<Player> getPlayers() {
+        return Collections.unmodifiableList(players);
+    }
+
+    public boolean checkIfPlayerBelongs(String playerName){
+        return players.stream().filter(player -> Objects.equals(player.name, playerName)).count() == 1;
     }
 
     private List<Card> createDeck() {
@@ -118,9 +132,10 @@ public class Game implements Serializable {
                 deck.removeFirst();
             }
         }
-
-        discardPile.add(deck.getLast());
-        deck.removeFirst();
+        while (discardPile.isEmpty() || discardPile.getLast().getColor() == Color.BLACK){
+            discardPile.add(deck.getLast());
+            deck.removeFirst();
+        }
 
         playGame();
     }
@@ -158,10 +173,9 @@ public class Game implements Serializable {
         if (drawNumber != 0) return false;
         var hand = players.get(currentPlayer).getHand();
         if (!(hand.contains(card)
-                && hand.stream().filter((card1) -> card == card1)
+                && hand.stream().filter(card::equals)
                         .findFirst().get().canPlayOn(discardPile.getFirst())))
             return false;
-        //TODO(luisd): complete this
         if(card.getValue()==Value.REVERSE){
             order= !order;
         }
@@ -187,6 +201,7 @@ public class Game implements Serializable {
 
         if(card.getNewColor() != null) return false;
         placeCard(card);
+        nextTurn();
         return true;
     }
 
@@ -233,6 +248,45 @@ public class Game implements Serializable {
         }
     }
 
+
+    public Card selectCard(Scanner scanner){
+        int number;
+
+        while(true){
+            //VER CASO EM QUE DAO INPUTS ERRADOS
+            System.out.println("\nSelect a card to play:");
+            String selectedNumber = scanner.nextLine();
+            number = Integer.parseInt(selectedNumber)-1;
+            if (number<players.get(currentPlayer).getHand().size()
+                    && number>0
+                    && players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.getLast())) break;
+            System.out.println("Can't play that card");
+        }
+
+        Card card = players.get(currentPlayer).getHand().get(number);
+        if(card.getColor()==Color.BLACK){
+            System.out.println("\nSelect a new color for the game:");
+            System.out.println("\n\033[94m [1] Blue\n\033[91m [2] Red\n\033[32m [3] Green\n\033[93m [4] Yellow\033[0m");
+
+            String selectedNumber = scanner.nextLine();
+
+            switch(selectedNumber){
+                case "1":
+                    card.setNewColor(Color.BLUE);
+                    break;
+                case "2":
+                    card.setNewColor(Color.RED);
+                    break;
+                case "3":
+                    card.setNewColor(Color.GREEN);
+                    break;
+                case "4":
+                    card.setNewColor(Color.YELLOW);
+                    break;
+            }
+        }
+        return card;
+    }
 
     public void playGame() {
         Scanner scanner = new Scanner(System.in);

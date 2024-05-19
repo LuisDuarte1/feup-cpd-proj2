@@ -1,14 +1,12 @@
 package feup.cpd.server.handlers;
 
 import feup.cpd.protocol.MessageReader;
-import feup.cpd.protocol.models.AcceptMatch;
-import feup.cpd.protocol.models.LoginRequest;
-import feup.cpd.protocol.models.ProtocolModel;
-import feup.cpd.protocol.models.QueueJoin;
+import feup.cpd.protocol.models.*;
 import feup.cpd.server.App;
 import feup.cpd.server.concurrent.ConcurrentSocketChannel;
 import feup.cpd.server.concurrent.helper.LockedValue;
 import feup.cpd.server.models.PlayerState;
+import feup.cpd.server.services.GameService;
 import feup.cpd.server.services.LoginService;
 import feup.cpd.server.services.QueueService;
 
@@ -60,6 +58,9 @@ public class MessageHandler implements Callable<Void> {
                         QueueService.handleAcceptQueue(
                                 playerStateLockedValue, acceptMatch,
                                 executorService, socketChannel);
+                case CardPlayed cardPlayed -> GameService.handleCardPlayed(
+                        playerStateLockedValue, cardPlayed,
+                        executorService, socketChannel);
                 case null -> null;
                 default -> throw new IllegalStateException(
                         "Unexpected value: " +

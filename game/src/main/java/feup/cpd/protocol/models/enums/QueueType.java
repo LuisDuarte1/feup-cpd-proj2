@@ -3,7 +3,6 @@ package feup.cpd.protocol.models.enums;
 public enum QueueType {
     NORMAL(0),
     RANKED(1),
-
     ;
 
     public final int value;
