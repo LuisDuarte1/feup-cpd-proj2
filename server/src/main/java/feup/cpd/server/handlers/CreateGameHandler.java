@@ -32,38 +32,42 @@ public class CreateGameHandler implements Callable<Void> {
         newGame.setQueueType(queueType);
         newGame.startGameHeadless(playerNames);
 
-        App.activeGames.put(matchID, newGame);
-
-        var startingPlayer = newGame.getCurrentPlayerName();
-        List<Card> drawnCards = new ArrayList<>();
-        while (true){
-            Optional<Card> optionalCard = newGame.checkAndDrawHeadless();
-            if(optionalCard.isEmpty()) break;
-            drawnCards.add(optionalCard.get());
-        }
-
-        for(var player : playerNames){
-            var connection = App.playersLoggedOn.lockAndRead((map) -> map.getInverse(player));
-
-            var playerState = App.connectedPlayersState.get(connection);
-
-            playerState.reentrantLock.lock();
-            try {
-                playerState.value = PlayerState.IN_GAME;
-            } finally {
-                playerState.reentrantLock.unlock();
+        var lockedGame = App.activeGames.put(matchID, newGame);
+        lockedGame.reentrantLock.lock();
+        try {
+            var startingPlayer = newGame.getCurrentPlayerName();
+            List<Card> drawnCards = new ArrayList<>();
+            while (true) {
+                Optional<Card> optionalCard = newGame.checkAndDrawHeadless();
+                if (optionalCard.isEmpty()) break;
+                drawnCards.add(optionalCard.get());
             }
 
-            var gameState = new GameState(startingPlayer.equals(player), matchID, newGame.getTopCard(),
-                    startingPlayer.equals(player) ? newGame.getCurrentPlayerHand() : new ArrayList<>(),
-                    startingPlayer.equals(player) ? drawnCards : new ArrayList<>()
-                    );
-            connection.writeLock.lock();
-            try{
-                connection.socketChannel.write(ProtocolFacade.createPacket(gameState));
-            } finally {
-                connection.writeLock.unlock();
+            for (var player : playerNames) {
+                var connection = App.playersLoggedOn.lockAndRead((map) -> map.getInverse(player));
+
+                var playerState = App.connectedPlayersState.get(connection);
+
+                playerState.reentrantLock.lock();
+                try {
+                    playerState.value = PlayerState.IN_GAME;
+                } finally {
+                    playerState.reentrantLock.unlock();
+                }
+
+                var gameState = new GameState(startingPlayer.equals(player), matchID, newGame.getTopCard(),
+                        startingPlayer.equals(player) ? newGame.getCurrentPlayerHand() : new ArrayList<>(),
+                        startingPlayer.equals(player) ? drawnCards : new ArrayList<>()
+                );
+                connection.writeLock.lock();
+                try {
+                    connection.socketChannel.write(ProtocolFacade.createPacket(gameState));
+                } finally {
+                    connection.writeLock.unlock();
+                }
             }
+        } finally {
+            lockedGame.reentrantLock.unlock();
         }
         return null;
     }

@@ -121,7 +121,6 @@ public class Game {
     }
 
     public Optional<Card> drawCard(){
-        System.out.println("Drawing card...");
         if (deck.isEmpty()) return Optional.empty();
         final Card card = deck.getLast();
         players.get(currentPlayer).getHand().add(card);
@@ -205,7 +204,10 @@ public class Game {
         }
 
         else if(card.getValue()==Value.SKIP){
+            placeCard(card);
             nextTurn();
+            nextTurn();
+            return true;
         }
 
         else if(card.getValue()==Value.DRAW2){
@@ -235,7 +237,6 @@ public class Game {
     }
 
     public void reshuffleDeck(){
-        System.out.println("Reshuffling deck...");
 
         deck.addAll(discardPile);
         discardPile.clear();

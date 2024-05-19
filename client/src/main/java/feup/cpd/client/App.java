@@ -9,6 +9,7 @@ import feup.cpd.game.Game;
 import feup.cpd.protocol.MessageReader;
 import feup.cpd.protocol.ProtocolFacade;
 import feup.cpd.protocol.exceptions.InvalidMessage;
+import feup.cpd.protocol.exceptions.LostConnectionException;
 import feup.cpd.protocol.models.*;
 import feup.cpd.protocol.models.enums.QueueType;
 import feup.cpd.protocol.models.enums.StatusType;
@@ -18,11 +19,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
-import java.util.List;
-import java.util.Locale;
-import java.util.Scanner;
+import java.util.*;
 
 public class App {
+
+    public static int RECONNECT_TIMEOUT = 5;
 
     public static Card selectCard(List<Card> hand, Card topCard, Scanner scanner){
         int number;
@@ -66,18 +67,37 @@ public class App {
         return card;
     }
 
-    public static void main(String[] args) throws IOException, InvalidMessage {
+    public static Card selectCardAuto(List<Card> hand, Card topCard){
+        List<Card> possiblePlays = new ArrayList<>(hand.stream().filter(card -> card.canPlayOn(topCard)).toList());
+        Collections.shuffle(possiblePlays);
+
+        Card playedCard = possiblePlays.getFirst();
+        if(playedCard.getColor() == Color.BLACK){
+            playedCard.setNewColor(Color.RED);
+        }
+        return playedCard;
+    }
+
+    static String username = null;
+    static String password = null;
+
+    static SocketChannel clientChannel = null;
+
+    public static void main(String[] args) throws IOException, InvalidMessage, InterruptedException {
         Scanner scanner = new Scanner(System.in);
-        String username = null;
-        String password = null;
+        username = null;
+        password = null;
+        boolean ranked = true;
+        boolean auto = false;
         if(args.length != 0){
             username = args[0];
             password = args[1];
+            ranked = args[2].equals("ranked");
+            auto = true;
         }
 
-        //TODO(luisd): change this to be compatible with docker
-        SocketChannel clientChannel = SocketChannel.open(new InetSocketAddress("localhost", 4206));
-        if(args.length == 0){
+        clientChannel = SocketChannel.open(new InetSocketAddress("localhost", 4206));
+        if(!auto){
             System.out.print("Enter username: ");
             username = scanner.nextLine();
 
@@ -85,75 +105,143 @@ public class App {
             password = scanner.nextLine();
         }
 
-        final QueueType queueType = QueueType.NORMAL;
-
+        QueueType queueType = ranked ? QueueType.RANKED : QueueType.NORMAL;
+        if(!auto){
+            System.out.println("Do you want to play ranked or normal? (ranked/normal):");
+            String output = scanner.nextLine().toLowerCase(Locale.ROOT);
+            queueType = output.equals("ranked") ? QueueType.RANKED : QueueType.NORMAL;
+        }
 
 
         ProtocolModel protocolModel =
-                ProtocolFacade.sendModelAndReceiveResponse(
-                        clientChannel, new LoginRequest(username, password));
+                null;
+        try {
+            protocolModel = ProtocolFacade.sendModelAndReceiveResponse(
+                    clientChannel, new LoginRequest(username, password));
+        } catch (LostConnectionException e) {
+            tryReconnectToServer(e.protocolModel);
+        }
 
         assert protocolModel != null;
         System.out.println(((Status) protocolModel).message);
 
         QueueToken queueToken =
-                (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
-                        clientChannel, new QueueJoin(queueType));
+                null;
+        try {
+            queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
+                    clientChannel, new QueueJoin(queueType));
+        } catch (LostConnectionException e) {
+            tryReconnectToServer(e.protocolModel);
+        }
 
-        var inGame = false;
 
-        while (true){
-            switch (ProtocolFacade.receiveFromServer(clientChannel)){
-                case MatchFound matchFound -> {
-                    System.out.print("Found match, do you want to accept? (Y/n):");
-                    String output = scanner.nextLine().toLowerCase(Locale.ROOT);
-                    boolean accepted = output.equals("y");
-                    clientChannel.write(ProtocolFacade.createPacket(new AcceptMatch(
-                            accepted,
-                            queueToken.uuid,
-                            matchFound.matchID))
-                    );
+        clientLoop(scanner, queueToken, auto, queueType);
 
-                }
-                case Status status when status.code == StatusType.MATCH_STARTING -> {
-                    inGame = true;
-                    System.out.println("Everyone accepted match... starting");
-                }
-                case Status status when status.code == StatusType.OK -> {
-                    System.out.printf("Server returned: %s\n", status.message);
-                }
-                case Status status when status.code == StatusType.NOT_IN_QUEUE -> {
-                    if(!inGame){
+    }
+
+    private static void tryReconnectToServer(ProtocolModel lostData)
+            throws IOException, InterruptedException, InvalidMessage {
+        while (!clientChannel.isConnected()){
+            System.out.println("Trying to reconnect to server...");
+            Thread.sleep(RECONNECT_TIMEOUT* 1000L);
+            clientChannel = SocketChannel.open(new InetSocketAddress("localhost", 4206));
+        }
+        ProtocolModel protocolModel = null;
+        try {
+            protocolModel = ProtocolFacade.sendModelAndReceiveResponse(
+                    clientChannel, new LoginRequest(username, password));
+        } catch (LostConnectionException e) {
+            tryReconnectToServer(null);
+        }
+
+        assert protocolModel != null;
+        System.out.println(((Status) protocolModel).message);
+
+        if(lostData != null){
+            clientChannel.write(ProtocolFacade.createPacket(lostData));
+        }
+
+    }
+
+    private static void clientLoop(Scanner scanner, QueueToken queueToken, boolean auto, QueueType queueType) throws IOException, InvalidMessage, InterruptedException {
+        try {
+            while (true) {
+                switch (ProtocolFacade.receiveFromServer(clientChannel)) {
+                    case MatchFound matchFound -> {
+                        if(!auto){
+                            System.out.print("Found match, do you want to accept? (Y/n):");
+                            String output = scanner.nextLine().toLowerCase(Locale.ROOT);
+                            boolean accepted = output.equals("y");
+                            clientChannel.write(ProtocolFacade.createPacket(new AcceptMatch(
+                                    accepted,
+                                    queueToken.uuid,
+                                    matchFound.matchID))
+                            );
+                        } else {
+                            clientChannel.write(ProtocolFacade.createPacket(new AcceptMatch(
+                                    true,
+                                    queueToken.uuid,
+                                    matchFound.matchID))
+                            );
+                        }
+                    }
+                    case Status status when status.code == StatusType.MATCH_STARTING -> {
+                        System.out.println("Everyone accepted match... starting");
+                    }
+                    case Status status when status.code == StatusType.OK -> {
+                        System.out.printf("Server returned: %s\n", status.message);
+                    }
+                    case Status status when status.code == StatusType.NOT_IN_QUEUE -> {
                         System.out.println("Removed from queue... trying again to enter");
+                        if (!auto) {
+                            System.out.println("Do you want to play ranked or normal? (ranked/normal):");
+                            String output = scanner.nextLine().toLowerCase(Locale.ROOT);
+                            queueType = output.equals("ranked") ? QueueType.RANKED : QueueType.NORMAL;
+                        }
+
                         queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
                                 clientChannel, new QueueJoin(queueType));
                     }
-                }
-                case GameState state when state.isTurn -> {
-                    System.out.println("YOUR TURN!!!!");
-                    if(!state.drawnCards.isEmpty()){
-                        System.out.printf("You've drawn %d cards:\n", state.drawnCards.size());
-                        state.drawnCards.forEach(System.out::println);
+                    case GameState state when state.isTurn -> {
+                        System.out.println("YOUR TURN!!!!");
+                        if (!state.drawnCards.isEmpty()) {
+                            System.out.printf("You've drawn %d cards:\n", state.drawnCards.size());
+                            state.drawnCards.forEach(System.out::println);
+                        }
+                        System.out.println("Other player played:");
+                        System.out.println(state.topCard);
+
+                        System.out.println("Your hand:");
+                        state.hand.forEach(System.out::println);
+
+                        Card card = !auto ? selectCard(state.hand, state.topCard, scanner) : selectCardAuto(
+                                state.hand,
+                                state.topCard);
+                        if(auto) Thread.sleep(1000);
+                        clientChannel.write(ProtocolFacade.createPacket(new CardPlayed(state.matchUUID, card)));
+
                     }
-                    System.out.println("Other player played:");
-                    System.out.println(state.topCard);
+                    case GameState state -> {
+                        System.out.println("Other player played:");
+                        System.out.println(state.topCard);
 
-                    System.out.println("Your hand:");
-                    state.hand.forEach(System.out::println);
-
-                    Card card = selectCard(state.hand, state.topCard, scanner);
-                    clientChannel.write(ProtocolFacade.createPacket(new CardPlayed(state.matchUUID, card)));
-
+                    }
+                    case Status status when status.code == StatusType.GAME_OVER -> {
+                        if (!auto) {
+                            System.out.println("Do you want to play ranked or normal? (ranked/normal):");
+                            String output = scanner.nextLine().toLowerCase(Locale.ROOT);
+                            queueType = output.equals("ranked") ? QueueType.RANKED : QueueType.NORMAL;
+                        }
+                        queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
+                                clientChannel, new QueueJoin(queueType));
+                    }
+                    case null -> throw new RuntimeException("Could not receive message from server");
+                    default -> throw new RuntimeException("Didn't handle packet received from server");
                 }
-                case GameState state -> {
-                    System.out.println("Other player played:");
-                    System.out.println(state.topCard);
-
-                }
-                case null -> throw new RuntimeException("Could not receive message from server");
-                default -> throw new RuntimeException("Didn't handle packet received from server");
             }
+        } catch (LostConnectionException e){
+            tryReconnectToServer(e.protocolModel);
+            clientLoop(scanner, queueToken, auto, queueType);
         }
-
     }
 }

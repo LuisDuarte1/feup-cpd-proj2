@@ -4,6 +4,7 @@ import feup.cpd.protocol.exceptions.InvalidMessage;
 import feup.cpd.protocol.models.ProtocolModel;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
@@ -67,6 +68,9 @@ public class MessageReader {
             return ProtocolFacade.buildFromPacket(byteBuffer);
         } catch (ClosedChannelException closedChannelException){
             //don't call another message handler if it's closed
+            return null;
+        } catch (ConnectException e){
+            disconnectionCallback.apply(null);
             return null;
         }
         catch (IOException | InvalidMessage e) {

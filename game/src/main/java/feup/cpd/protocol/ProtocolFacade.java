@@ -1,6 +1,7 @@
 package feup.cpd.protocol;
 
 import feup.cpd.protocol.exceptions.InvalidMessage;
+import feup.cpd.protocol.exceptions.LostConnectionException;
 import feup.cpd.protocol.models.ProtocolModel;
 import feup.cpd.protocol.models.QueueJoin;
 import feup.cpd.protocol.models.Status;
@@ -62,17 +63,22 @@ public class ProtocolFacade {
     }
 
     static public ProtocolModel sendModelAndReceiveResponse(SocketChannel socketChannel, ProtocolModel protocolModel)
-            throws InvalidMessage, IOException {
-
+            throws InvalidMessage, IOException, LostConnectionException {
+        if(!socketChannel.isConnected()){
+            throw new LostConnectionException("Lost connection to server", protocolModel);
+        }
         socketChannel.write(ProtocolFacade.createPacket(protocolModel));
         return receiveFromServer(socketChannel);
     }
 
-    static public ProtocolModel receiveFromServer(SocketChannel socketChannel){
-        ProtocolModel message = MessageReader.readMessageFromSocket(socketChannel, (Void unused) -> {
-
+    static public ProtocolModel receiveFromServer(SocketChannel socketChannel) throws LostConnectionException {
+        ProtocolModel message = null;
+        message = MessageReader.readMessageFromSocket(socketChannel, (Void unused) -> {
             return null;
         });
+        if(message == null && !socketChannel.isConnected()){
+            throw new LostConnectionException("Lost connection to server");
+        }
         switch (message){
             case Status status -> {
                 if (status.code == StatusType.INVALID_LOGIN || status.code == StatusType.INVALID_REQUEST){
