@@ -4,6 +4,7 @@ import feup.cpd.game.Card;
 import feup.cpd.game.Game;
 import feup.cpd.protocol.models.AcceptMatch;
 import feup.cpd.protocol.models.GameState;
+import feup.cpd.protocol.primitives.ListConverter;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -22,19 +23,12 @@ public class GameStateFactory {
         long firstLong = byteBuffer.getLong();
         long secondLong = byteBuffer.getLong();
 
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(
-                byteBuffer
-                        .slice(byteBuffer.position(), byteBuffer.remaining())
-                        .array()
-        );
-        try {
-            ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
-            //trust me bro checks
-            Game game = (Game) objectInputStream.readObject();
-            List<Card> drawnCards = (List<Card>) objectInputStream.readObject();
-            return new GameState(isTurn, new UUID(firstLong, secondLong), game, drawnCards);
-        } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
+
+        Card card = CardFactory.buildFromPacket(byteBuffer).getFirst();
+
+        var handResult = new ListConverter<Card>().convertPrimitiveFromBuffer(byteBuffer, CardFactory::buildFromPacket);
+        var drawnResult = new ListConverter<Card>().convertPrimitiveFromBuffer(handResult.rest(), CardFactory::buildFromPacket);
+
+        return new GameState(isTurn, new UUID(firstLong,secondLong), card, handResult.value(), drawnResult.value());
     }
 }

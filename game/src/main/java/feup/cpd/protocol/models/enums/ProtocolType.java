@@ -9,6 +9,8 @@ public enum ProtocolType {
     MATCH_FOUND(4),
     ACCEPT_MATCH(5),
     GAME_STATE(6),
+    CARD_PLAYED(7),
+    CARD(8)
 
     ;
 

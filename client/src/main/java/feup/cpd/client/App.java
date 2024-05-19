@@ -3,6 +3,8 @@
  */
 package feup.cpd.client;
 
+import feup.cpd.game.Card;
+import feup.cpd.game.Color;
 import feup.cpd.game.Game;
 import feup.cpd.protocol.MessageReader;
 import feup.cpd.protocol.ProtocolFacade;
@@ -16,10 +18,51 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
+import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
 
 public class App {
+
+    public static Card selectCard(List<Card> hand, Card topCard, Scanner scanner){
+        int number;
+
+        while(true){
+            //VER CASO EM QUE DAO INPUTS ERRADOS
+            System.out.println("\nSelect a card to play:");
+            String selectedNumber = scanner.nextLine();
+            number = Integer.parseInt(selectedNumber)-1;
+            if (number<hand.size()
+                    && number>0
+                    && hand.get(number).canPlayOn(topCard)) break;
+            System.out.println("Can't play that card");
+        }
+
+        Card card = hand.get(number);
+        if(card.getColor()== Color.BLACK){
+            System.out.println("\nSelect a new color for the game:");
+            System.out.println("\n\033[94m [1] Blue\n\033[91m [2] Red\n\033[32m [3] Green\n\033[93m [4] Yellow\033[0m");
+
+            String selectedNumber = scanner.nextLine();
+
+            switch(selectedNumber){
+                case "1":
+                    card.setNewColor(Color.BLUE);
+                    break;
+                case "2":
+                    card.setNewColor(Color.RED);
+                    break;
+                case "3":
+                    card.setNewColor(Color.GREEN);
+                    break;
+                case "4":
+                    card.setNewColor(Color.YELLOW);
+                    break;
+            }
+        }
+        return card;
+    }
+
     public static void main(String[] args) throws IOException, InvalidMessage {
         Scanner scanner = new Scanner(System.in);
         String username = null;
@@ -39,7 +82,7 @@ public class App {
             password = scanner.nextLine();
         }
 
-        final QueueType queueType = QueueType.RANKED;
+        final QueueType queueType = QueueType.NORMAL;
 
 
 
@@ -82,6 +125,27 @@ public class App {
                         queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
                                 clientChannel, new QueueJoin(queueType));
                     }
+                }
+                case GameState state when state.isTurn -> {
+                    System.out.println("YOUR TURN!!!!");
+                    if(!state.drawnCards.isEmpty()){
+                        System.out.printf("You've drawn %d cards:\n", state.drawnCards.size());
+                        state.drawnCards.forEach(System.out::println);
+                    }
+                    System.out.println("Other player played:");
+                    System.out.println(state.topCard);
+
+                    System.out.println("Your hand:");
+                    state.hand.forEach(System.out::println);
+
+                    Card card = selectCard(state.hand, state.topCard, scanner);
+                    clientChannel.write(ProtocolFacade.createPacket(new CardPlayed(state.matchUUID, card)));
+
+                }
+                case GameState state -> {
+                    System.out.println("Other player played:");
+                    System.out.println(state.topCard);
+
                 }
                 case null -> throw new RuntimeException("Could not receive message from server");
                 default -> throw new RuntimeException("Didn't handle packet received from server");

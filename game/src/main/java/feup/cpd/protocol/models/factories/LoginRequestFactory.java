@@ -10,8 +10,8 @@ public class LoginRequestFactory {
     public static LoginRequest buildFromPacket(ByteBuffer byteBuffer){
         final StringConverter stringConverter = new StringConverter();
 
-        var userResult = stringConverter.convertPrimitiveFromBuffer(byteBuffer);
-        var passwordResult = stringConverter.convertPrimitiveFromBuffer(userResult.rest());
+        var userResult = stringConverter.convertPrimitiveFromBuffer(byteBuffer, null);
+        var passwordResult = stringConverter.convertPrimitiveFromBuffer(userResult.rest(), null);
 
         return new LoginRequest(userResult.value(), passwordResult.value());
     }

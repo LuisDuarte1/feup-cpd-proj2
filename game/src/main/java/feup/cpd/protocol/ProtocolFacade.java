@@ -55,6 +55,9 @@ public class ProtocolFacade {
             case QUEUE_TOKEN -> QueueTokenFactory.buildFromPacket(restPacket);
             case MATCH_FOUND -> MatchFoundFactory.buildFromPacket(restPacket);
             case ACCEPT_MATCH -> AcceptMatchFactory.buildFromPacket(restPacket);
+            case GAME_STATE -> GameStateFactory.buildFromPacket(restPacket);
+            case CARD_PLAYED -> CardPlayedFactory.buildFromPacket(restPacket);
+            case CARD -> throw new InvalidMessage("You are not supposed to send raw CARD type");
         };
     }
 

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Player implements Serializable {
+    private static final long serialVersionUID = 1L;
     public final String name;
     private List<Card> hand;
     public Player(String name) {

@@ -1,14 +1,20 @@
 package feup.cpd.game;
 
 
+import feup.cpd.protocol.models.ProtocolModel;
+import feup.cpd.protocol.models.enums.ProtocolType;
+import feup.cpd.protocol.primitives.StringConverter;
+
+import java.io.ByteArrayOutputStream;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Objects;
 
-public class Card implements Serializable {
+public class Card extends ProtocolModel {
 
     public static final boolean linux = true;
-    private Color color;
-    private Value value;
+    private final Color color;
+    private final Value value;
     private Color newColor;
 
     @Override
@@ -25,6 +31,7 @@ public class Card implements Serializable {
     }
 
     public Card(Color color, Value value){
+        super(ProtocolType.CARD);
         this.color = color;
         this.value = value;
     }
@@ -97,6 +104,22 @@ public class Card implements Serializable {
         return color==Color.BLACK || value == Value.WILD || value == Value.WILD4 ||
                 color == card.getColor() || color == card.getNewColor() ||
                 (color != card.getColor() && value == card.getValue());
+    }
+
+    @Override
+    public ByteBuffer toProtocol() {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+        byteArrayOutputStream.writeBytes(
+                new StringConverter().convertToBuffer(color.name()).array()
+        );
+        byteArrayOutputStream.writeBytes(
+                new StringConverter().convertToBuffer(value.name()).array()
+        );
+        byteArrayOutputStream.writeBytes(
+                new StringConverter().convertToBuffer(newColor != null ? newColor.name() : "EMPTY").array()
+        );
+        return ByteBuffer.wrap(byteArrayOutputStream.toByteArray());
     }
 
 

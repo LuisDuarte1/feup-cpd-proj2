@@ -6,11 +6,12 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Function;
 
 public class StringConverter implements ProtocolPrimitiveConverter<String>{
 
     @Override
-    public ConversionResult<String> convertPrimitiveFromBuffer(ByteBuffer byteBuffer) {
+    public ConversionResult<String> convertPrimitiveFromBuffer(ByteBuffer byteBuffer, Function<ByteBuffer, String> builder) {
         var length = byteBuffer.getInt();
         var buff = new byte[length];
         byteBuffer.get(buff, 0, length);

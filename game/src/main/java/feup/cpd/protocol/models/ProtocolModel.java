@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 
 abstract public class ProtocolModel {
 
-    ProtocolModel(ProtocolType type){
+    protected ProtocolModel(ProtocolType type){
         this.type = type;
     }
     public final ProtocolType type;

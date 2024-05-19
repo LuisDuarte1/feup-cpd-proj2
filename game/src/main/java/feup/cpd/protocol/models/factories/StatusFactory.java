@@ -12,7 +12,7 @@ public class StatusFactory {
         final StringConverter stringConverter = new StringConverter();
 
         StatusType statusType = StatusType.fromInt(byteBuffer.getInt());
-        var result = stringConverter.convertPrimitiveFromBuffer(byteBuffer);
+        var result = stringConverter.convertPrimitiveFromBuffer(byteBuffer, null);
 
         return new Status(statusType, result.value());
     }
