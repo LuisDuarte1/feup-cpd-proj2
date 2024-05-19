@@ -98,9 +98,4 @@ public class Card implements Serializable {
                 color == card.getColor() || color == card.getNewColor() ||
                 (color != card.getColor() && value == card.getValue());
     }
-
-
-   /* public boolean applyEffect(){
-
-    }*/
 }

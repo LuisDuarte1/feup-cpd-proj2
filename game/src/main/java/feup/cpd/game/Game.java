@@ -65,6 +65,10 @@ public class Game implements Serializable {
         return false;
     }
 
+    public boolean isUno(){
+        return (players.get(currentPlayer).getHand().size() == 1);
+    }
+
     public void checkAndDraw(){
         if(drawNumber!=0){
             for(int i=0;i<drawNumber;i++){
@@ -88,9 +92,9 @@ public class Game implements Serializable {
         }
     }
 
-    public void placeCard(Card card){
+    public void placeCard(Card card, int number){
         discardPile.add(card);
-        players.get(currentPlayer).getHand().remove(card);
+        players.get(currentPlayer).getHand().remove(number);
     }
 
     public Card drawCard(){
@@ -102,15 +106,17 @@ public class Game implements Serializable {
         return card;
     }
     public void showHand(){
+        int i = 1;
         for (Card card : players.get(currentPlayer).getHand()) {
-            System.out.print(card.toString() + " ");
+            System.out.print("[" + i + "]" + card.toString() + " ");
+            i++;
         }
 
         System.out.println();
     }
 
     public void startGame() {
-        for(int i=0;i<5;i++){
+        for(int i=0;i<3;i++){
             Player p= new Player("Jorge");
             addPlayer(p);
             for(int j=0; j<7;j++){
@@ -119,8 +125,13 @@ public class Game implements Serializable {
             }
         }
 
-        discardPile.add(deck.getLast());
-        deck.removeFirst();
+        Card card = deck.getLast();
+        while (card.getColor() == Color.BLACK || card.getValue() == Value.DRAW2){
+            deck.removeLast();
+            card = deck.getLast();
+        }
+        discardPile.add(card);
+        deck.removeLast();
 
         playGame();
     }
@@ -179,14 +190,14 @@ public class Game implements Serializable {
             if(card.getValue()==Value.WILD4){
                 drawNumber+=4;
             }
-            placeCard(card);
+            //placeCard(card);
             nextTurn();
             return true;
         }
 
 
         if(card.getNewColor() != null) return false;
-        placeCard(card);
+        //placeCard(card);
         return true;
     }
 
@@ -253,7 +264,7 @@ public class Game implements Serializable {
                 try {
                     number = Integer.parseInt(selectedNumber) - 1;
                     if (number >= 0 && number < players.get(currentPlayer).getHand().size()
-                            && players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.get(discardPile.size() - 1))) {
+                            && players.get(currentPlayer).getHand().get(number).canPlayOn(discardPile.getLast())) {
                         break;
                     } else {
                         System.out.println("Can't play that card");
@@ -273,6 +284,7 @@ public class Game implements Serializable {
             }
 
             else if(card.getValue()==Value.SKIP){
+                placeCard(card, number);
                 nextTurn();
             }
 
@@ -288,8 +300,8 @@ public class Game implements Serializable {
                 }
             }
 
-            placeCard(card);
-
+            placeCard(card, number);
+            if (isUno()) System.out.println("UNO!");
             System.out.println();
 
             nextTurn();
