@@ -1,5 +1,7 @@
 package feup.cpd.game;
 
+import feup.cpd.protocol.models.enums.QueueType;
+
 import java.io.Serializable;
 import java.util.*;
 
@@ -12,6 +14,7 @@ public class Game {
 
     private final List<Card> discardPile;
     private boolean order;
+    private QueueType queueType;
     private int drawNumber;
     public Game() {
         deck = createDeck();
@@ -20,6 +23,14 @@ public class Game {
         discardPile = new ArrayList<>();
         order= true;
         drawNumber=0;
+    }
+
+    public QueueType getQueueType() {
+        return queueType;
+    }
+
+    public void setQueueType(QueueType queueType) {
+        this.queueType = queueType;
     }
 
     public Card getTopCard() { return discardPile.getLast(); }
@@ -46,6 +57,8 @@ public class Game {
 
         for (Color color : colors) {
             for (Value value : values) {
+                //duplicate cards in order to be played better
+                deck.add(new Card(color, value));
                 deck.add(new Card(color, value));
             }
         }
@@ -107,13 +120,14 @@ public class Game {
         players.get(currentPlayer).getHand().remove(card);
     }
 
-    public Card drawCard(){
+    public Optional<Card> drawCard(){
         System.out.println("Drawing card...");
+        if (deck.isEmpty()) return Optional.empty();
         final Card card = deck.getLast();
         players.get(currentPlayer).getHand().add(card);
         deck.removeLast();
         if (deck.isEmpty()) reshuffleDeck();
-        return card;
+        return Optional.of(card);
     }
     public void showHand(){
         for (Card card : players.get(currentPlayer).getHand()) {
@@ -142,7 +156,8 @@ public class Game {
 
     public Optional<Card> checkAndDrawHeadless(){
         if(drawNumber != 0){
-            return Optional.of(drawCard());
+            drawNumber -= 1;
+            return drawCard();
         }
 
         for (Card card : players.get(currentPlayer).getHand()) {
@@ -151,7 +166,16 @@ public class Game {
             }
         }
 
-        return Optional.of(drawCard());
+        return drawCard();
+    }
+
+    public boolean checkIfCanPlay(){
+        for (Card card : players.get(currentPlayer).getHand()) {
+            if (card.canPlayOn(discardPile.getLast()) || card.getColor() == Color.BLACK) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void startGameHeadless(List<String> playerNames){
@@ -174,7 +198,7 @@ public class Game {
         var hand = players.get(currentPlayer).getHand();
         if (!(hand.contains(card)
                 && hand.stream().filter(card::equals)
-                        .findFirst().get().canPlayOn(discardPile.getFirst())))
+                        .findFirst().get().canPlayOn(discardPile.getLast())))
             return false;
         if(card.getValue()==Value.REVERSE){
             order= !order;
@@ -185,13 +209,13 @@ public class Game {
         }
 
         else if(card.getValue()==Value.DRAW2){
-            drawNumber+=2;
+            drawNumber = 2;
         }
         else if(card.getColor()==Color.BLACK){
             if(card.getNewColor() == null) return false;
 
             if(card.getValue()==Value.WILD4){
-                drawNumber+=4;
+                drawNumber = 4;
             }
             placeCard(card);
             nextTurn();

@@ -6,7 +6,8 @@ public enum StatusType {
     INVALID_REQUEST(3),
 
     MATCH_STARTING(4),
-    NOT_IN_QUEUE(5)
+    NOT_IN_QUEUE(5),
+    GAME_OVER(6)
     ;
 
     public final int value;

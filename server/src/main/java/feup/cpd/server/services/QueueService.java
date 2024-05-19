@@ -162,7 +162,7 @@ public class QueueService {
                 }
                 executorService.submit(new CreateGameHandler(
                         matchPair.value.first().keySet().stream().toList(),
-                        acceptMatch.matchId));
+                        acceptMatch.matchId, matchPair.value.third()));
                 return ProtocolFacade.createPacket(gameStarting);
             }
 

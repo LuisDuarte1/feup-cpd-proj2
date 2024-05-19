@@ -4,6 +4,7 @@ import feup.cpd.game.Card;
 import feup.cpd.game.Game;
 import feup.cpd.protocol.ProtocolFacade;
 import feup.cpd.protocol.models.GameState;
+import feup.cpd.protocol.models.enums.QueueType;
 import feup.cpd.server.App;
 import feup.cpd.server.models.PlayerState;
 
@@ -15,9 +16,12 @@ public class CreateGameHandler implements Callable<Void> {
     final List<String> playerNames;
     final UUID matchID;
 
-    public CreateGameHandler(List<String> playerNames, UUID matchID) {
+    final QueueType queueType;
+
+    public CreateGameHandler(List<String> playerNames, UUID matchID, QueueType queueType) {
         this.playerNames = new ArrayList<>(playerNames);
         this.matchID = matchID;
+        this.queueType = queueType;
     }
 
     @Override
@@ -25,6 +29,7 @@ public class CreateGameHandler implements Callable<Void> {
         Collections.sort(playerNames);
 
         Game newGame = new Game();
+        newGame.setQueueType(queueType);
         newGame.startGameHeadless(playerNames);
 
         App.activeGames.put(matchID, newGame);

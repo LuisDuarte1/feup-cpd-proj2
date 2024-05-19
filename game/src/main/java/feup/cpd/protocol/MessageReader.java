@@ -11,11 +11,12 @@ import java.util.Arrays;
 import java.util.function.Function;
 
 public class MessageReader {
-    static public int INITIAL_BUFFER_SIZE = 1024;
+    //10kb buffer, messages should not be larger than that
+    static public int INITIAL_BUFFER_SIZE = 1024*1024;
 
     public static ProtocolModel readMessageFromSocket(SocketChannel socketChannel,
                                                       Function<Void, Void> disconnectionCallback) {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(INITIAL_BUFFER_SIZE); //1kb buffer, messages should not be larger than that
+        ByteBuffer byteBuffer = ByteBuffer.allocate(INITIAL_BUFFER_SIZE);
         try {
             var r = socketChannel.read(byteBuffer);
             byteBuffer.position(0);

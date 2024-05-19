@@ -31,15 +31,18 @@ public class App {
             //VER CASO EM QUE DAO INPUTS ERRADOS
             System.out.println("\nSelect a card to play:");
             String selectedNumber = scanner.nextLine();
-            number = Integer.parseInt(selectedNumber)-1;
-            if (number<hand.size()
-                    && number>0
-                    && hand.get(number).canPlayOn(topCard)) break;
+            try {
+                number = Math.max(Integer.parseInt(selectedNumber) - 1, 0);
+            } catch (NumberFormatException numberFormatException){
+                System.out.println("Invalid number given... try again");
+                continue;
+            }
+            if (number < hand.size() && hand.get(number).canPlayOn(topCard)) break;
             System.out.println("Can't play that card");
         }
 
         Card card = hand.get(number);
-        if(card.getColor()== Color.BLACK){
+        if(card.getColor() == Color.BLACK){
             System.out.println("\nSelect a new color for the game:");
             System.out.println("\n\033[94m [1] Blue\n\033[91m [2] Red\n\033[32m [3] Green\n\033[93m [4] Yellow\033[0m");
 
