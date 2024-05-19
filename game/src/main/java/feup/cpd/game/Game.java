@@ -145,9 +145,10 @@ public class Game {
                 deck.removeFirst();
             }
         }
-        while (discardPile.isEmpty() || discardPile.getLast().getColor() == Color.BLACK){
+        while (discardPile.isEmpty() || discardPile.getLast().getColor() == Color.BLACK
+                || discardPile.getLast().getValue() == Value.DRAW2){
             discardPile.add(deck.getLast());
-            deck.removeFirst();
+            deck.removeLast();
         }
 
         playGame();

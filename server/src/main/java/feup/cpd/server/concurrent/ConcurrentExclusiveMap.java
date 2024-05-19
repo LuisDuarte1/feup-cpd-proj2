@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 
 /**
  * It ensures that map value accesses/writes are exclusive which is different from ConcurrentRWMap which
@@ -57,6 +58,18 @@ public class ConcurrentExclusiveMap<K, V> {
             internalMap.remove(key);
         } finally {
             w.unlock();
+        }
+    }
+
+    public LockedValue<V> getUntilFirstInverse(Function<LockedValue<V>, Boolean> booleanFunction){
+        r.lock();
+        try {
+            for(var entry : internalMap.entrySet()){
+                if(booleanFunction.apply(entry.getValue())) return entry.getValue();
+            }
+            return null;
+        } finally {
+            r.unlock();
         }
     }
 

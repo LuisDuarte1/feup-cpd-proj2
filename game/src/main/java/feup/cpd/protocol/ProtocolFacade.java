@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
+import java.util.List;
 
 public class ProtocolFacade {
 
@@ -46,10 +47,12 @@ public class ProtocolFacade {
         if(!Arrays.equals(MAGIC_PACKET, magicPacketBuf)){
             throw new InvalidMessage("Message doesn't start with MAGIC_PACKET");
         }
-        ProtocolType type = ProtocolType.fromInt(byteBuffer.getInt(7));
+        var length = byteBuffer.getInt();
+        ProtocolType type = ProtocolType.fromInt(byteBuffer.getInt());
+        var currPos = byteBuffer.position();
 
-        var restPacket = byteBuffer.position(11);
-        return switch(type){
+        var restPacket = byteBuffer;
+        ProtocolModel protocolModel = switch(type){
             case STATUS -> StatusFactory.buildFromPacket(restPacket);
             case LOGIN_REQUEST -> LoginRequestFactory.buildFromPacket(restPacket);
             case QUEUE_JOIN -> QueueJoinFactory.buildFromPacket(restPacket);
@@ -60,9 +63,11 @@ public class ProtocolFacade {
             case CARD_PLAYED -> CardPlayedFactory.buildFromPacket(restPacket);
             case CARD -> throw new InvalidMessage("You are not supposed to send raw CARD type");
         };
+        byteBuffer.position(currPos+length);
+        return protocolModel;
     }
 
-    static public ProtocolModel sendModelAndReceiveResponse(SocketChannel socketChannel, ProtocolModel protocolModel)
+    static public List<ProtocolModel> sendModelAndReceiveResponse(SocketChannel socketChannel, ProtocolModel protocolModel)
             throws InvalidMessage, IOException, LostConnectionException {
         if(!socketChannel.isConnected()){
             throw new LostConnectionException("Lost connection to server", protocolModel);
@@ -71,28 +76,29 @@ public class ProtocolFacade {
         return receiveFromServer(socketChannel);
     }
 
-    static public ProtocolModel receiveFromServer(SocketChannel socketChannel) throws LostConnectionException {
-        ProtocolModel message = null;
-        message = MessageReader.readMessageFromSocket(socketChannel, (Void unused) -> {
-            return null;
-        });
-        if(message == null && !socketChannel.isConnected()){
+    static public List<ProtocolModel> receiveFromServer(SocketChannel socketChannel) throws LostConnectionException {
+        List<ProtocolModel> messages = null;
+        messages = MessageReader.readMessageFromSocket(socketChannel, (Void unused) -> null);
+        if(messages == null && !socketChannel.isConnected()){
             throw new LostConnectionException("Lost connection to server");
         }
-        switch (message){
-            case Status status -> {
-                if (status.code == StatusType.INVALID_LOGIN || status.code == StatusType.INVALID_REQUEST){
-                    throw new RuntimeException(
-                            String.format("Server throwed status %s with message: %s",
-                                    status.code,
-                                    status.message));
+        assert messages != null;
+        messages.forEach((message) -> {
+            switch (message){
+                case Status status -> {
+                    if (status.code == StatusType.INVALID_LOGIN || status.code == StatusType.INVALID_REQUEST){
+                        throw new RuntimeException(
+                                String.format("Server throwed status %s with message: %s",
+                                        status.code,
+                                        status.message));
+                    }
                 }
-                return status;
+                case null -> {throw new RuntimeException("Could not build packet received from client...");}
+                default -> {
+                }
             }
-            case null -> {throw new RuntimeException("Could not build packet received from client...");}
-            default -> {
-                return message;
-            }
-        }
+        });
+
+        return messages;
     }
 }

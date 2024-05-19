@@ -149,7 +149,6 @@ public class QueueService {
                 System.out.printf("Game %s has been accepted by all... starting game.\n", acceptMatch.matchId);
                 final Status gameStarting = new Status(StatusType.MATCH_STARTING, "Everyone accepted... match starting");
                 for(var entry : matchPair.value.first().entrySet()){
-                    if(Objects.equals(entry.getKey(), playerName)) continue;
                     var connection = App.playersLoggedOn.lockAndRead((val) -> val.getInverse(entry.getKey()));
                     connection.writeLock.lock();
                     try {
@@ -163,7 +162,7 @@ public class QueueService {
                 executorService.submit(new CreateGameHandler(
                         matchPair.value.first().keySet().stream().toList(),
                         acceptMatch.matchId, matchPair.value.third()));
-                return ProtocolFacade.createPacket(gameStarting);
+                return null;
             }
 
             return ProtocolFacade.createPacket(

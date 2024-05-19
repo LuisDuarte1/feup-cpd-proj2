@@ -1,6 +1,7 @@
 package feup.cpd.server.services;
 
 import feup.cpd.protocol.ProtocolFacade;
+import feup.cpd.protocol.models.GameState;
 import feup.cpd.protocol.models.LoginRequest;
 import feup.cpd.protocol.models.Status;
 import feup.cpd.protocol.models.enums.StatusType;
@@ -9,7 +10,9 @@ import feup.cpd.server.concurrent.ConcurrentSocketChannel;
 import feup.cpd.server.concurrent.helper.LockedValue;
 import feup.cpd.server.models.Player;
 import feup.cpd.server.models.PlayerState;
+import feup.cpd.server.repositories.NormalQueueRepository;
 import feup.cpd.server.repositories.PlayerRepository;
+import feup.cpd.server.repositories.RankedQueueRepository;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -53,7 +56,7 @@ public class LoginService {
                     loginRequest.user,
                     receivedPasswordHash
             ));
-            changePlayerLoginState(playerState, loginRequest, concurrentSocketChannel);
+            changePlayerLoginState(playerState, loginRequest, concurrentSocketChannel, executorService);
             return ProtocolFacade.createPacket(
                     new Status(StatusType.OK, "Created account"));
         }
@@ -68,24 +71,61 @@ public class LoginService {
             );
         }
 
-        changePlayerLoginState(playerState, loginRequest, concurrentSocketChannel);
+        changePlayerLoginState(playerState, loginRequest, concurrentSocketChannel, executorService);
 
         return ProtocolFacade.createPacket(
                 new Status(StatusType.OK, "Login successful")
         );
     }
 
-    private static void changePlayerLoginState(LockedValue<PlayerState> playerState, LoginRequest loginRequest, ConcurrentSocketChannel concurrentSocketChannel) {
+    private static void changePlayerLoginState(LockedValue<PlayerState> playerState, LoginRequest loginRequest,
+                                               ConcurrentSocketChannel concurrentSocketChannel, ExecutorService executorService) {
         playerState.reentrantLock.lock();
         try {
             playerState.value = PlayerState.LOGGED_IN;
         } finally {
             playerState.reentrantLock.unlock();
         }
-
-        App.playersLoggedOn.lockAndWrite((map) -> {
-            map.put(concurrentSocketChannel, loginRequest.user);
-            return  null;
-        });
+        try {
+            if (NormalQueueRepository.getInstance(executorService).checkIfUserInQueue(loginRequest.user)) {
+                playerState.reentrantLock.lock();
+                try {
+                    playerState.value = PlayerState.NORMAL_QUEUE;
+                } finally {
+                    playerState.reentrantLock.unlock();
+                }
+                return;
+            }
+            if (RankedQueueRepository.getInstance(executorService).checkIfUserInQueue(loginRequest.user)) {
+                playerState.reentrantLock.lock();
+                try {
+                    playerState.value = PlayerState.RANKED_QUEUE;
+                } finally {
+                    playerState.reentrantLock.unlock();
+                }
+                return;
+            }
+            var lockedGame = App.activeGames.getUntilFirstInverse((gameLockedValue -> {
+                gameLockedValue.reentrantLock.lock();
+                try {
+                    return gameLockedValue.value.checkIfPlayerBelongs(loginRequest.user);
+                } finally {
+                    gameLockedValue.reentrantLock.unlock();
+                }
+            }));
+            if (lockedGame != null){
+                playerState.reentrantLock.lock();
+                try {
+                    playerState.value = PlayerState.IN_GAME;
+                } finally {
+                    playerState.reentrantLock.unlock();
+                }
+            }
+        } finally {
+            App.playersLoggedOn.lockAndWrite((map) -> {
+                map.put(concurrentSocketChannel, loginRequest.user);
+                return  null;
+            });
+        }
     }
 }

@@ -1,5 +1,6 @@
 package feup.cpd.server.repositories;
 
+import feup.cpd.server.App;
 import feup.cpd.server.collections.BidirectionalUniqueMap;
 import feup.cpd.server.collections.BucketTimedQueue;
 import feup.cpd.server.collections.Pair;
@@ -21,7 +22,6 @@ public class RankedQueueRepository extends Repository {
 
     private static final int ELO_INTERVAL = 200;
 
-    private static final int NUM_PLAYERS = 4;
 
     private static final String RANKED_QUEUE_REPOSITORY_PATH = "rankedQueue.ser";
 
@@ -29,7 +29,7 @@ public class RankedQueueRepository extends Repository {
     public static RankedQueueRepository getInstance(ExecutorService executorService){
         if(instance == null){
             instance = new RankedQueueRepository(executorService);
-            executorService.submit(new RankedQueueMatchmakerHandler(executorService, NUM_PLAYERS));
+            executorService.submit(new RankedQueueMatchmakerHandler(executorService, App.PLAYER_GAME_COUNT));
             executorService.submit(new RankedQueuePropagateHandler(executorService));
         }
         return instance;

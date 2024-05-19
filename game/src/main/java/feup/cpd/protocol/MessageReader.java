@@ -8,15 +8,17 @@ import java.net.ConnectException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Function;
 
 public class MessageReader {
     //10kb buffer, messages should not be larger than that
     static public int INITIAL_BUFFER_SIZE = 1024*1024;
 
-    public static ProtocolModel readMessageFromSocket(SocketChannel socketChannel,
-                                                      Function<Void, Void> disconnectionCallback) {
+    public static List<ProtocolModel> readMessageFromSocket(SocketChannel socketChannel,
+                                                            Function<Void, Void> disconnectionCallback) {
         ByteBuffer byteBuffer = ByteBuffer.allocate(INITIAL_BUFFER_SIZE);
         try {
             var r = socketChannel.read(byteBuffer);
@@ -64,8 +66,19 @@ public class MessageReader {
 
             System.out.printf("Received message from %s with length %d\n",
                     socketChannel.getRemoteAddress(), length);
+            final List<ProtocolModel> protocolModelList = new ArrayList<>();
+            ProtocolModel protocolModel = ProtocolFacade.buildFromPacket(byteBuffer);
+            protocolModelList.add(protocolModel);
+            while (true){
+                try {
+                    ProtocolModel otherModel = ProtocolFacade.buildFromPacket(byteBuffer);
+                    protocolModelList.add(otherModel);
+                } catch (InvalidMessage invalidMessage){
+                    break;
+                }
 
-            return ProtocolFacade.buildFromPacket(byteBuffer);
+            }
+            return protocolModelList;
         } catch (ClosedChannelException closedChannelException){
             //don't call another message handler if it's closed
             return null;

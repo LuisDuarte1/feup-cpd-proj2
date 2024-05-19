@@ -12,6 +12,7 @@ import feup.cpd.server.services.QueueService;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
@@ -33,7 +34,7 @@ public class MessageHandler implements Callable<Void> {
     public Void call() {
         socketChannel.readLock.lock();
         try {
-            ProtocolModel protocolModel = MessageReader.readMessageFromSocket(socketChannel.socketChannel,
+            List<ProtocolModel> protocolModels = MessageReader.readMessageFromSocket(socketChannel.socketChannel,
                 (Void unused)->{
                     System.out.println("Handling disconnection and removing player from state");
                     App.playersLoggedOn.lockAndWrite((map) -> {
@@ -43,42 +44,47 @@ public class MessageHandler implements Callable<Void> {
                     App.connectedPlayersState.delete(socketChannel);
                 return null;
             });
-            ByteBuffer response = switch (protocolModel) {
-                case LoginRequest loginRequest ->
-                        LoginService.handleLoginRequest(
-                                playerStateLockedValue, loginRequest,
-                                executorService, socketChannel
-                        );
-                case QueueJoin queueJoin ->
-                        QueueService.handleQueueJoinRequest(
-                                playerStateLockedValue, queueJoin,
-                                executorService, socketChannel
-                        );
-                case AcceptMatch acceptMatch ->
-                        QueueService.handleAcceptQueue(
-                                playerStateLockedValue, acceptMatch,
-                                executorService, socketChannel);
-                case CardPlayed cardPlayed -> GameService.handleCardPlayed(
-                        playerStateLockedValue, cardPlayed,
-                        executorService, socketChannel);
-                case null -> null;
-                default -> throw new IllegalStateException(
-                        "Unexpected value: " +
-                                protocolModel.getClass().getName());
-            };
+            protocolModels.forEach((protocolModel -> {
+                ByteBuffer response = switch (protocolModel) {
+                    case LoginRequest loginRequest ->
+                            LoginService.handleLoginRequest(
+                                    playerStateLockedValue, loginRequest,
+                                    executorService, socketChannel
+                            );
+                    case QueueJoin queueJoin ->
+                            QueueService.handleQueueJoinRequest(
+                                    playerStateLockedValue, queueJoin,
+                                    executorService, socketChannel
+                            );
+                    case AcceptMatch acceptMatch ->
+                            QueueService.handleAcceptQueue(
+                                    playerStateLockedValue, acceptMatch,
+                                    executorService, socketChannel);
+                    case CardPlayed cardPlayed -> GameService.handleCardPlayed(
+                            playerStateLockedValue, cardPlayed,
+                            executorService, socketChannel);
+                    case null -> null;
+                    default -> throw new IllegalStateException(
+                            "Unexpected value: " +
+                                    protocolModel.getClass().getName());
+                };
 
-            if (response != null){
-                socketChannel.writeLock.lock();
-                try {
-                    socketChannel.socketChannel.write(response);
-                } finally {
-                    socketChannel.writeLock.unlock();
+                if (response != null){
+                    socketChannel.writeLock.lock();
+                    try {
+                        socketChannel.socketChannel.write(response);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    } finally {
+                        socketChannel.writeLock.unlock();
+                    }
                 }
-            }
+            }));
+
             executorService.submit(new MessageHandler(socketChannel, playerStateLockedValue));
 
             return null;
-        } catch (RuntimeException | IOException e){
+        } catch (RuntimeException e){
             System.err.println("Throwable: " + e.toString());
             e.printStackTrace();
             throw new RuntimeException(e);

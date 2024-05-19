@@ -117,7 +117,7 @@ public class App {
                 null;
         try {
             protocolModel = ProtocolFacade.sendModelAndReceiveResponse(
-                    clientChannel, new LoginRequest(username, password));
+                    clientChannel, new LoginRequest(username, password)).getFirst();
         } catch (LostConnectionException e) {
             tryReconnectToServer(e.protocolModel);
         }
@@ -129,7 +129,7 @@ public class App {
                 null;
         try {
             queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
-                    clientChannel, new QueueJoin(queueType));
+                    clientChannel, new QueueJoin(queueType)).getFirst();
         } catch (LostConnectionException e) {
             tryReconnectToServer(e.protocolModel);
         }
@@ -149,7 +149,7 @@ public class App {
         ProtocolModel protocolModel = null;
         try {
             protocolModel = ProtocolFacade.sendModelAndReceiveResponse(
-                    clientChannel, new LoginRequest(username, password));
+                    clientChannel, new LoginRequest(username, password)).getFirst();
         } catch (LostConnectionException e) {
             tryReconnectToServer(null);
         }
@@ -166,78 +166,83 @@ public class App {
     private static void clientLoop(Scanner scanner, QueueToken queueToken, boolean auto, QueueType queueType) throws IOException, InvalidMessage, InterruptedException {
         try {
             while (true) {
-                switch (ProtocolFacade.receiveFromServer(clientChannel)) {
-                    case MatchFound matchFound -> {
-                        if(!auto){
-                            System.out.print("Found match, do you want to accept? (Y/n):");
-                            String output = scanner.nextLine().toLowerCase(Locale.ROOT);
-                            boolean accepted = output.equals("y");
-                            clientChannel.write(ProtocolFacade.createPacket(new AcceptMatch(
-                                    accepted,
-                                    queueToken.uuid,
-                                    matchFound.matchID))
-                            );
-                        } else {
-                            clientChannel.write(ProtocolFacade.createPacket(new AcceptMatch(
-                                    true,
-                                    queueToken.uuid,
-                                    matchFound.matchID))
-                            );
+                var messages = ProtocolFacade.receiveFromServer(clientChannel);
+                for(var message : messages){
+                    switch (message) {
+                        case MatchFound matchFound -> {
+                            if(!auto){
+                                System.out.print("Found match, do you want to accept? (Y/n):");
+                                String output = scanner.nextLine().toLowerCase(Locale.ROOT);
+                                boolean accepted = output.equals("y");
+                                clientChannel.write(ProtocolFacade.createPacket(new AcceptMatch(
+                                        accepted,
+                                        queueToken.uuid,
+                                        matchFound.matchID))
+                                );
+                            } else {
+                                clientChannel.write(ProtocolFacade.createPacket(new AcceptMatch(
+                                        true,
+                                        queueToken.uuid,
+                                        matchFound.matchID))
+                                );
+                            }
                         }
-                    }
-                    case Status status when status.code == StatusType.MATCH_STARTING -> {
-                        System.out.println("Everyone accepted match... starting");
-                    }
-                    case Status status when status.code == StatusType.OK -> {
-                        System.out.printf("Server returned: %s\n", status.message);
-                    }
-                    case Status status when status.code == StatusType.NOT_IN_QUEUE -> {
-                        System.out.println("Removed from queue... trying again to enter");
-                        if (!auto) {
-                            System.out.println("Do you want to play ranked or normal? (ranked/normal):");
-                            String output = scanner.nextLine().toLowerCase(Locale.ROOT);
-                            queueType = output.equals("ranked") ? QueueType.RANKED : QueueType.NORMAL;
+                        case Status status when status.code == StatusType.MATCH_STARTING -> {
+                            System.out.println("Everyone accepted match... starting");
                         }
-
-                        queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
-                                clientChannel, new QueueJoin(queueType));
-                    }
-                    case GameState state when state.isTurn -> {
-                        System.out.println("YOUR TURN!!!!");
-                        if (!state.drawnCards.isEmpty()) {
-                            System.out.printf("You've drawn %d cards:\n", state.drawnCards.size());
-                            state.drawnCards.forEach(System.out::println);
+                        case Status status when status.code == StatusType.OK -> {
+                            System.out.printf("Server returned: %s\n", status.message);
                         }
-                        System.out.println("Other player played:");
-                        System.out.println(state.topCard);
+                        case Status status when status.code == StatusType.NOT_IN_QUEUE -> {
+                            System.out.println("Removed from queue... trying again to enter");
+                            if (!auto) {
+                                System.out.println("Do you want to play ranked or normal? (ranked/normal):");
+                                String output = scanner.nextLine().toLowerCase(Locale.ROOT);
+                                queueType = output.equals("ranked") ? QueueType.RANKED : QueueType.NORMAL;
+                            }
 
-                        System.out.println("Your hand:");
-                        state.hand.forEach(System.out::println);
-
-                        Card card = !auto ? selectCard(state.hand, state.topCard, scanner) : selectCardAuto(
-                                state.hand,
-                                state.topCard);
-                        if(auto) Thread.sleep(1000);
-                        clientChannel.write(ProtocolFacade.createPacket(new CardPlayed(state.matchUUID, card)));
-
-                    }
-                    case GameState state -> {
-                        System.out.println("Other player played:");
-                        System.out.println(state.topCard);
-
-                    }
-                    case Status status when status.code == StatusType.GAME_OVER -> {
-                        if (!auto) {
-                            System.out.println("Do you want to play ranked or normal? (ranked/normal):");
-                            String output = scanner.nextLine().toLowerCase(Locale.ROOT);
-                            queueType = output.equals("ranked") ? QueueType.RANKED : QueueType.NORMAL;
+                            clientChannel.write(ProtocolFacade.createPacket(new QueueJoin(queueType)));
                         }
-                        queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
-                                clientChannel, new QueueJoin(queueType));
+                        case GameState state when state.isTurn -> {
+                            System.out.println("YOUR TURN!!!!");
+                            if (!state.drawnCards.isEmpty()) {
+                                System.out.printf("You've drawn %d cards:\n", state.drawnCards.size());
+                                state.drawnCards.forEach(System.out::println);
+                            }
+                            System.out.println("Other player played:");
+                            System.out.println(state.topCard);
+
+                            System.out.println("Your hand:");
+                            state.hand.forEach(System.out::println);
+
+                            Card card = !auto ? selectCard(state.hand, state.topCard, scanner) : selectCardAuto(
+                                    state.hand,
+                                    state.topCard);
+                            if(auto) Thread.sleep(1000);
+                            clientChannel.write(ProtocolFacade.createPacket(new CardPlayed(state.matchUUID, card)));
+
+                        }
+                        case GameState state -> {
+                            System.out.println("Other player played:");
+                            System.out.println(state.topCard);
+
+                        }
+                        case Status status when status.code == StatusType.GAME_OVER -> {
+                            if (!auto) {
+                                System.out.println("Do you want to play ranked or normal? (ranked/normal):");
+                                String output = scanner.nextLine().toLowerCase(Locale.ROOT);
+                                queueType = output.equals("ranked") ? QueueType.RANKED : QueueType.NORMAL;
+                            }
+                            clientChannel.write(ProtocolFacade.createPacket(new QueueJoin(queueType)));
+                        }
+                        case QueueToken queueToken1 -> {
+                            queueToken = queueToken1;
+                        }
+                        case null -> throw new RuntimeException("Could not receive message from server");
+                        default -> throw new RuntimeException("Didn't handle packet received from server");
                     }
-                    case null -> throw new RuntimeException("Could not receive message from server");
-                    default -> throw new RuntimeException("Didn't handle packet received from server");
                 }
+
             }
         } catch (LostConnectionException e){
             tryReconnectToServer(e.protocolModel);

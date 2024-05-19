@@ -26,7 +26,7 @@ public class CreateGameHandler implements Callable<Void> {
 
     @Override
     public Void call() throws Exception {
-        Collections.sort(playerNames);
+        Collections.shuffle(playerNames);
 
         Game newGame = new Game();
         newGame.setQueueType(queueType);
@@ -59,6 +59,7 @@ public class CreateGameHandler implements Callable<Void> {
                         startingPlayer.equals(player) ? newGame.getCurrentPlayerHand() : new ArrayList<>(),
                         startingPlayer.equals(player) ? drawnCards : new ArrayList<>()
                 );
+
                 connection.writeLock.lock();
                 try {
                     connection.socketChannel.write(ProtocolFacade.createPacket(gameState));

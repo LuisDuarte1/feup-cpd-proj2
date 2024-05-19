@@ -45,6 +45,10 @@ public class App {
     public static int PLAYER_GAME_COUNT = 4;
 
     public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
+
+        if (args.length != 0){
+            App.PLAYER_GAME_COUNT = Integer.parseInt(args[0]);
+        }
         final ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.bind(new InetSocketAddress(4206));
         final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
