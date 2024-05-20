@@ -30,13 +30,22 @@ public class QueueService {
             ConcurrentSocketChannel concurrentSocketChannel){
         playerState.reentrantLock.lock();
         try {
-            if(playerState.value != PlayerState.LOGGED_IN)
+            if(playerState.value != PlayerState.LOGGED_IN &&
+                    !(playerState.value == PlayerState.NORMAL_QUEUE || playerState.value == PlayerState.RANKED_QUEUE ))
                 return ProtocolFacade.createPacket(
                         new Status(StatusType.INVALID_REQUEST, "User must be logged in and not " +
                                 "in a game in order to join a queue."));
+
+            if(playerState.value == PlayerState.NORMAL_QUEUE || playerState.value == PlayerState.RANKED_QUEUE ){
+                return ProtocolFacade.createPacket(
+                        new Status(StatusType.OK, "Already in queue because of a previous connection")
+                );
+            }
         } finally {
             playerState.reentrantLock.unlock();
         }
+
+
 
         String name = App.playersLoggedOn.lockAndRead((map) -> map.get(concurrentSocketChannel));
 

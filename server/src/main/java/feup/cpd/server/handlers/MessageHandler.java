@@ -44,44 +44,45 @@ public class MessageHandler implements Callable<Void> {
                     App.connectedPlayersState.delete(socketChannel);
                 return null;
             });
-            protocolModels.forEach((protocolModel -> {
-                ByteBuffer response = switch (protocolModel) {
-                    case LoginRequest loginRequest ->
-                            LoginService.handleLoginRequest(
-                                    playerStateLockedValue, loginRequest,
-                                    executorService, socketChannel
-                            );
-                    case QueueJoin queueJoin ->
-                            QueueService.handleQueueJoinRequest(
-                                    playerStateLockedValue, queueJoin,
-                                    executorService, socketChannel
-                            );
-                    case AcceptMatch acceptMatch ->
-                            QueueService.handleAcceptQueue(
-                                    playerStateLockedValue, acceptMatch,
-                                    executorService, socketChannel);
-                    case CardPlayed cardPlayed -> GameService.handleCardPlayed(
-                            playerStateLockedValue, cardPlayed,
-                            executorService, socketChannel);
-                    case null -> null;
-                    default -> throw new IllegalStateException(
-                            "Unexpected value: " +
-                                    protocolModel.getClass().getName());
-                };
+            if(protocolModels != null){
+                protocolModels.forEach((protocolModel -> {
+                    ByteBuffer response = switch (protocolModel) {
+                        case LoginRequest loginRequest ->
+                                LoginService.handleLoginRequest(
+                                        playerStateLockedValue, loginRequest,
+                                        executorService, socketChannel
+                                );
+                        case QueueJoin queueJoin ->
+                                QueueService.handleQueueJoinRequest(
+                                        playerStateLockedValue, queueJoin,
+                                        executorService, socketChannel
+                                );
+                        case AcceptMatch acceptMatch ->
+                                QueueService.handleAcceptQueue(
+                                        playerStateLockedValue, acceptMatch,
+                                        executorService, socketChannel);
+                        case CardPlayed cardPlayed -> GameService.handleCardPlayed(
+                                playerStateLockedValue, cardPlayed,
+                                executorService, socketChannel);
+                        case null -> null;
+                        default -> throw new IllegalStateException(
+                                "Unexpected value: " +
+                                        protocolModel.getClass().getName());
+                    };
 
-                if (response != null){
-                    socketChannel.writeLock.lock();
-                    try {
-                        socketChannel.socketChannel.write(response);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    } finally {
-                        socketChannel.writeLock.unlock();
+                    if (response != null){
+                        socketChannel.writeLock.lock();
+                        try {
+                            socketChannel.socketChannel.write(response);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        } finally {
+                            socketChannel.writeLock.unlock();
+                        }
                     }
-                }
-            }));
-
-            executorService.submit(new MessageHandler(socketChannel, playerStateLockedValue));
+                }));
+                executorService.submit(new MessageHandler(socketChannel, playerStateLockedValue));
+            }
 
             return null;
         } catch (RuntimeException e){

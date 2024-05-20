@@ -5,8 +5,6 @@ package feup.cpd.client;
 
 import feup.cpd.game.Card;
 import feup.cpd.game.Color;
-import feup.cpd.game.Game;
-import feup.cpd.protocol.MessageReader;
 import feup.cpd.protocol.ProtocolFacade;
 import feup.cpd.protocol.exceptions.InvalidMessage;
 import feup.cpd.protocol.exceptions.LostConnectionException;
@@ -14,9 +12,7 @@ import feup.cpd.protocol.models.*;
 import feup.cpd.protocol.models.enums.QueueType;
 import feup.cpd.protocol.models.enums.StatusType;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.util.*;
@@ -128,10 +124,15 @@ public class App {
         QueueToken queueToken =
                 null;
         try {
-            queueToken = (QueueToken) ProtocolFacade.sendModelAndReceiveResponse(
+            ProtocolModel protocolModel1 = ProtocolFacade.sendModelAndReceiveResponse(
                     clientChannel, new QueueJoin(queueType)).getFirst();
+            if(protocolModel1 instanceof QueueToken){
+                queueToken = (QueueToken) protocolModel1;
+            }
         } catch (LostConnectionException e) {
             tryReconnectToServer(e.protocolModel);
+        } catch (RuntimeException ignored){
+            
         }
 
 

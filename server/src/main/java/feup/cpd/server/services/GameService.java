@@ -82,6 +82,7 @@ public class GameService {
                 if(Objects.equals(player.name, playerName)) continue;
 
                 var playerConn = App.playersLoggedOn.lockAndRead((map) -> map.getInverse(player.name));
+                if(playerConn == null) continue;
                 playerConn.writeLock.lock();
                 try {
                     playerConn.socketChannel.write(ProtocolFacade.createPacket(
